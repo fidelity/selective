@@ -1,0 +1,16 @@
+Selective
+Copyright 2020 and onwards FMR LLC.
+
+This product includes software developed at
+FMR LLC (https://www.fidelity.com/).
+
+This product relies on the following works (and the dependencies thereof), installed separately:
+- catboost | apache 2 | https://github.com/catboost/catboost
+- lightgbm | mit | https://github.com/microsoft/LightGBM
+- minepy | gpl-3.0-only | https://github.com/minepy/minepy
+- numpy | bsd-3 | https://github.com/numpy/numpy
+- pandas | bsd-3 | https://github.com/pandas-dev/pandas
+- scikit-learn | bsd-3 |https://github.com/scikit-learn/scikit-learn
+- seaborn | bsd-3 | https://github.com/mwaskom/seaborn
+- statsmodels | bsd-3 | https://github.com/statsmodels/statsmodels
+- xgboost | apache-2.0 | https://github.com/dmlc/xgboost
