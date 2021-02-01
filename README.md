@@ -155,7 +155,6 @@ pip install dist/selective-X.X.X-py3-none-any.whl
 To confirm successful cloning and setup, run the tests. All tests should pass. 
 
 ```bash
-cd selective
 python -m unittest discover -v tests
 ```
 
