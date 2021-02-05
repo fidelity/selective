@@ -1,5 +1,5 @@
 # Selective: Feature Selection Library
-**[Selective](https://itec-stash.fmr.com/projects/PR110447/repos/pr110447-ai_coe_pi_atlas_releases/browse/selective)** is a white-box feature selection library that supports unsupervised and supervised selection methods for classification and regression tasks. 
+**Selective** is a white-box feature selection library that supports unsupervised and supervised selection methods for classification and regression tasks. 
 
 The library provides:
 
@@ -37,9 +37,6 @@ subset = selector.fit_transform(data, label)
 print("Reduction:", list(subset.columns))
 print("Scores:", list(selector.get_absolute_scores()))
 ```
-
-[Usage example notebook](https://confluence.fmr.com/download/attachments/741220179/usage_example.slides.html?api=v2#/) presents quick start examples to introduce the library. 
-
 
 
 ## Available Methods
