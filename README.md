@@ -13,7 +13,7 @@ The library provides:
 
 * Inspection of results and feature importance
 
-  
+Selective is developed by the Artificial Intelligence Center of Excellence at Fidelity Investments.
 
 ## Quick Start
 ```python
@@ -121,48 +121,13 @@ df = pd.DataFrame(selector.get_absolute_scores(), index=data.columns)
 plot_importance(df)
 ```
 
-
 ## Installation
 
-The library requires Python 3.6+. See `requirements.txt` for necessary packages. 
-
-### Install from wheel package
-
-After installing the requirements, you can install the library from the provided wheel package using the following commands:
-
-```bash
-pip install dist/selective-X.X.X-py3-none-any.whl
-```
-Note: Don't forget to replace ``X.X.X`` with the current version number.
-
-
-### Install from source code
-
-Alternatively, you can build a wheel package on your platform from scratch using the source code:
-
-```bash
-pip install setuptools wheel # if wheel is not installed
-python setup.py bdist_wheel
-pip install dist/selective-X.X.X-py3-none-any.whl
-```
-
-
-### Test Your Setup
-
-To confirm successful cloning and setup, run the tests. All tests should pass. 
-
-```bash
-python -m unittest discover -v tests
-```
-
-
-### Upgrading the Library
-
-To upgrade to the latest version of the library, run ``git pull origin master`` in the repo folder,
-and then run ``pip install --upgrade --no-cache-dir dist/selective-X.X.X-py3-none-any.whl``.
+Selective is available to install as `pip install selective`. 
 
 ## Support
-Please submit bug reports and feature requests as Issues. You can also submit any additional questions or feedback as issues.
+
+Please submit bug reports and feature requests as [Issues](https://github.com/fidelity/selective/issues).
 
 ## License
 Selective is licensed under the [GNU GPL 3.0.](https://github.com/fidelity/selective/blob/master/LICENSE)
