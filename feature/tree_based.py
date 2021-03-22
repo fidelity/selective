@@ -50,14 +50,14 @@ class _TreeBased(_BaseSupervisedSelector, _BaseDispatcher):
             # Custom estimator should be compatible with the task
             if "classification_" in task_str:
                 if isinstance(self.estimator, CatBoost):
-                    if self.estimator._estimator_type is not 'classifier':
+                    if self.estimator._estimator_type != 'classifier':
                         raise TypeError(str(self.estimator) + " cannot be used for task: " + task_str)
                 else:
                     if not isinstance(self.estimator, ClassifierMixin):
                         raise TypeError(str(self.estimator) + " cannot be used for task: " + task_str)
             else:
                 if isinstance(self.estimator, CatBoost):
-                    if self.estimator._estimator_type is not 'regressor':
+                    if self.estimator._estimator_type != 'regressor':
                         raise TypeError(str(self.estimator) + " cannot be used for task: " + task_str)
                 else:
                     if not isinstance(self.estimator, RegressorMixin):
