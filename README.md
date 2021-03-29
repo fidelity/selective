@@ -9,7 +9,7 @@ The library provides:
 
 * Automated task detection. No need to know what feature selection method works with what machine learning task
 
-* Benchmarking with multiple selectors
+* Benchmarking multiple selectors using cross-validation
 
 * Inspection of results and feature importance
 
@@ -91,7 +91,7 @@ selectors = {
 }
 
 # Benchmark
-score_df, selected_df, runtime_df = benchmark(selectors, data, label)
+score_df, selected_df, runtime_df = benchmark(selectors, data, label, cv=5)
 print(score_df, "\n\n", selected_df, "\n\n", runtime_df)
 
 # Get benchmark statistics by feature
