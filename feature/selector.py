@@ -479,7 +479,8 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
               cv: Optional[int] = None,
               output_filename: Optional[str] = None,
               drop_zero_variance_features: Optional[bool] = True,
-              verbose: bool = False) \
+              verbose: bool = False,
+              seed: int = Constants.default_seed) \
         -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Benchmark with a given set of feature selectors.
@@ -506,6 +507,8 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
         Whether to drop features with zero variance before running feature selector methods or not.
     verbose: bool, optional (default=False)
         Whether to print progress messages or not.
+    seed: int, optional (default=Constants.default_seed)
+        The random seed to initialize the random number generator.
 
     Returns
     -------
@@ -525,7 +528,7 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
     else:
 
         # Create K-Fold object
-        kf = KFold(n_splits=cv, shuffle=True, random_state=Constants.default_seed)
+        kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
 
         # Initialize variables
         t0 = time()
