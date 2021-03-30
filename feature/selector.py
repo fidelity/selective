@@ -513,6 +513,7 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
     Returns
     -------
     Tuple of data frames with scores, selected features and runtime for each method.
+    If cv is not None, the data frames will contain the concatenated results from each fold.
     """
 
     check_true(selectors is not None, ValueError("Benchmark selectors cannot be none."))
@@ -680,7 +681,7 @@ def calculate_statistics(scores: pd.DataFrame,
     scores_df = scores[columns].copy()
     selected_df = selected[columns].copy()
 
-    # Group by feature
+    # Group by feature for CV results
     scores_df = scores_df.groupby(scores_df.index).mean()
     selected_df = selected_df.groupby(selected_df.index).mean()
 
@@ -692,13 +693,13 @@ def calculate_statistics(scores: pd.DataFrame,
 
     # Calculate statistics
     stats_df = pd.DataFrame(index=scores_df.index)
-    stats_df["_score_mean"] = scores_df.mean(axis=1)
-    stats_df["_score_mean_norm"] = normalize_columns(scores_df).mean(axis=1)
-    stats_df["_selection_freq"] = selected_df.sum(axis=1)
-    stats_df["_selection_freq_norm"] = normalize_columns(selected_df).sum(axis=1)
+    stats_df["score_mean"] = scores_df.mean(axis=1)
+    stats_df["score_mean_norm"] = normalize_columns(scores_df).mean(axis=1)
+    stats_df["selection_freq"] = selected_df.sum(axis=1)
+    stats_df["selection_freq_norm"] = normalize_columns(selected_df).sum(axis=1)
 
     # Sort
-    stats_df.sort_values(by="_score_mean_norm", ascending=False, inplace=True)
+    stats_df.sort_values(by="score_mean_norm", ascending=False, inplace=True)
 
     return stats_df
 
@@ -747,7 +748,7 @@ def plot_importance(scores: pd.DataFrame,
     df = scores[columns].copy()
     df.fillna(0, inplace=True)
 
-    # Group by feature
+    # Group by feature for CV results
     df = df.groupby(df.index).mean()
 
     # Get normalized scores such that scores for each method sums to 1
