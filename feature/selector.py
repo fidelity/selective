@@ -640,8 +640,10 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
 def calculate_statistics(scores: pd.DataFrame,
                          selected: pd.DataFrame,
                          columns: Optional[list] = None,
-                         ignore_constant: Optional[bool] = True):
-    """Calculate statistics for each feature using scores/selections from list of methods.
+                         ignore_constant: Optional[bool] = True) -> pd.DataFrame:
+    """
+    Calculate statistics for each feature using scores/selections from list of methods.
+    Returns data frame with calculated statistics for each feature.
 
     Parameters
     ----------
