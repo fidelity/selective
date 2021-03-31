@@ -22,6 +22,7 @@ from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
+from sklearn.model_selection import KFold
 from xgboost import XGBClassifier, XGBRegressor
 
 from feature.base import _BaseDispatcher, _BaseSupervisedSelector, _BaseUnsupervisedSelector
@@ -475,9 +476,11 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
                                          SelectionMethod.Variance]],
               data: pd.DataFrame,
               labels: Optional[pd.Series] = None,
+              cv: Optional[int] = None,
               output_filename: Optional[str] = None,
               drop_zero_variance_features: Optional[bool] = True,
-              verbose: bool = False) \
+              verbose: bool = False,
+              seed: int = Constants.default_seed) \
         -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Benchmark with a given set of feature selectors.
@@ -495,6 +498,8 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
         Data of shape (n_samples, n_features) used for feature selection.
     labels: pd.Series, optional (default=None)
         The target values (class labels in classification, real numbers in regression).
+    cv: int, optional (default=None)
+        Number of folds to use for cross-validation.
     output_filename: str, optional (default=None)
         If not None, benchmarking output is saved.
         If file exists, results are appended, otherwise file is created.
@@ -502,6 +507,81 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
         Whether to drop features with zero variance before running feature selector methods or not.
     verbose: bool, optional (default=False)
         Whether to print progress messages or not.
+    seed: int, optional (default=Constants.default_seed)
+        The random seed to initialize the random number generator.
+
+    Returns
+    -------
+    Tuple of data frames with scores, selected features and runtime for each method.
+    If cv is not None, the data frames will contain the concatenated results from each fold.
+    """
+
+    check_true(selectors is not None, ValueError("Benchmark selectors cannot be none."))
+    check_true(data is not None, ValueError("Benchmark data cannot be none."))
+
+    if cv is None:
+        return _bench(selectors=selectors,
+                      data=data,
+                      labels=labels,
+                      output_filename=output_filename,
+                      drop_zero_variance_features=drop_zero_variance_features,
+                      verbose=verbose)
+    else:
+
+        # Create K-Fold object
+        kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
+
+        # Initialize variables
+        t0 = time()
+        train_labels, test_labels = None, None
+        score_df, selected_df, runtime_df = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+        # Split data into cv-folds and run _bench for each fold
+        if verbose:
+            print("\n>>> Running")
+        for fold, (train_index, _) in enumerate(kf.split(data)):
+
+            if verbose:
+                print("\tFold", fold, "...")
+
+            # Split data, labels into folds
+            train_data = data.iloc[train_index]
+            if labels is not None:
+                train_labels = labels.iloc[train_index]
+
+            # Run benchmark
+            score_cv_df, selected_cv_df, runtime_cv_df = _bench(selectors=selectors,
+                                                                data=train_data,
+                                                                labels=train_labels,
+                                                                output_filename=output_filename,
+                                                                drop_zero_variance_features=drop_zero_variance_features,
+                                                                verbose=False)
+
+            # Concatenate data frames
+            score_df = pd.concat((score_df, score_cv_df))
+            selected_df = pd.concat((selected_df, selected_cv_df))
+            runtime_df = pd.concat((runtime_df, runtime_cv_df))
+
+        if verbose:
+            print(f"<<< Done! Time taken: {(time() - t0) / 60:.2f} minutes")
+
+        return score_df, selected_df, runtime_df
+
+
+def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
+                                      SelectionMethod.Linear,
+                                      SelectionMethod.TreeBased,
+                                      SelectionMethod.Statistical,
+                                      SelectionMethod.Variance]],
+           data: pd.DataFrame,
+           labels: Optional[pd.Series] = None,
+           output_filename: Optional[str] = None,
+           drop_zero_variance_features: Optional[bool] = True,
+           verbose: bool = False) \
+        -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Benchmark with a given set of feature selectors.
+    Return a tuple of data frames with scores, runtime and selected features for each method.
 
     Returns
     -------
@@ -552,7 +632,7 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
             if verbose:
                 print(f"<<< Done! Time taken: {(time() - t0) / 60:.2f} minutes")
 
-    # Convert to series
+    # Format
     runtime_df = pd.Series(method_to_runtime).to_frame("runtime").rename_axis("method").reset_index()
 
     return score_df, selected_df, runtime_df
@@ -561,15 +641,19 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
 def calculate_statistics(scores: pd.DataFrame,
                          selected: pd.DataFrame,
                          columns: Optional[list] = None,
-                         ignore_constant: Optional[bool] = True):
-    """Calculate statistics for each feature using scores/selections from list of methods.
+                         ignore_constant: Optional[bool] = True) -> pd.DataFrame:
+    """
+    Calculate statistics for each feature using scores/selections from list of methods.
+    Returns data frame with calculated statistics for each feature.
 
     Parameters
     ----------
     scores:  pd.DataFrame
         Data frame with scores for each feature (index) and selector (columns).
+        Each feature could have multiple rows from different cross-validation folds.
     selected: pd.DataFrame
         Data frame with selection flag for each feature (index) and selector (columns).
+        Each feature could have multiple rows from different cross-validation folds.
     columns: list (default=None)
         List of methods (columns) to include in statistics.
         If None, all methods (columns) will be used.
@@ -584,9 +668,9 @@ def calculate_statistics(scores: pd.DataFrame,
     check_true(isinstance(scores, pd.DataFrame), ValueError("scores must be a data frame."))
     check_true(isinstance(selected, pd.DataFrame), ValueError("selection must be a data frame."))
     check_true(scores.shape == selected.shape, ValueError("Shapes of scores and selected data frames must match."))
-    check_true(len(scores.index.intersection(selected.index)) == selected.shape[0],
+    check_true(np.all(scores.index == selected.index),
                ValueError("Index of score and selection data frames must match."))
-    check_true(len(scores.columns.intersection(selected.columns)) == selected.shape[1],
+    check_true(np.all(scores.columns == selected.columns),
                ValueError("Columns of score and selection data frames must match."))
 
     # Get columns to use
@@ -597,25 +681,25 @@ def calculate_statistics(scores: pd.DataFrame,
     scores_df = scores[columns].copy()
     selected_df = selected[columns].copy()
 
+    # Group by feature for CV results
+    scores_df = scores_df.groupby(scores_df.index).mean()
+    selected_df = selected_df.groupby(selected_df.index).mean()
+
     # Drop methods with constant scores
     if ignore_constant:
         mask = ~np.isclose(np.var(scores_df, axis=0), 0)
         scores_df = scores_df.loc[:, mask]
         selected_df = selected_df.loc[:, mask]
 
-    # Sort by index
-    scores_df.sort_index(inplace=True)
-    selected_df.sort_index(inplace=True)
-
     # Calculate statistics
-    stats_df = pd.DataFrame(index=scores.index)
-    stats_df["_score_mean"] = scores_df.mean(axis=1)
-    stats_df["_score_mean_norm"] = normalize_columns(scores_df).mean(axis=1)
-    stats_df["_selection_freq"] = selected_df.sum(axis=1)
-    stats_df["_selection_freq_norm"] = normalize_columns(selected_df).sum(axis=1)
+    stats_df = pd.DataFrame(index=scores_df.index)
+    stats_df["score_mean"] = scores_df.mean(axis=1)
+    stats_df["score_mean_norm"] = normalize_columns(scores_df).mean(axis=1)
+    stats_df["selection_freq"] = selected_df.sum(axis=1)
+    stats_df["selection_freq_norm"] = normalize_columns(selected_df).sum(axis=1)
 
     # Sort
-    stats_df.sort_values(by="_score_mean_norm", ascending=False, inplace=True)
+    stats_df.sort_values(by="score_mean_norm", ascending=False, inplace=True)
 
     return stats_df
 
@@ -632,6 +716,7 @@ def plot_importance(scores: pd.DataFrame,
     ----------
     scores: pd.DataFrame
         Data frame with scores for each feature (index) and method (columns).
+        Each feature could have multiple rows from different cross-validation folds.
     columns: list (default=None)
         List of methods (columns) to include in statistics.
         If None, all methods (columns) will be used.
@@ -662,6 +747,9 @@ def plot_importance(scores: pd.DataFrame,
     # Fill nan with zero
     df = scores[columns].copy()
     df.fillna(0, inplace=True)
+
+    # Group by feature for CV results
+    df = df.groupby(df.index).mean()
 
     # Get normalized scores such that scores for each method sums to 1
     if normalize:

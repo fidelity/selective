@@ -9,7 +9,7 @@ The library provides:
 
 * Automated task detection. No need to know what feature selection method works with what machine learning task
 
-* Benchmarking with multiple selectors
+* Benchmarking multiple selectors using cross-validation
 
 * Inspection of results and feature importance
 
@@ -91,7 +91,7 @@ selectors = {
 }
 
 # Benchmark
-score_df, selected_df, runtime_df = benchmark(selectors, data, label)
+score_df, selected_df, runtime_df = benchmark(selectors, data, label, cv=5)
 print(score_df, "\n\n", selected_df, "\n\n", runtime_df)
 
 # Get benchmark statistics by feature
@@ -124,6 +124,18 @@ plot_importance(df)
 ## Installation
 
 Selective is available to install as `pip install selective`. 
+
+## Source 
+
+Alternatively, you can build a wheel package on your platform from scratch using the source code:
+
+```bash
+git clone https://github.com/fidelity/selective.git
+cd selective
+pip install setuptools wheel # if wheel is not installed
+python setup.py sdist bdist_wheel
+pip install dist/selective-X.X.X-py3-none-any.whl
+```
 
 ## Support
 

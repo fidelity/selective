@@ -17,43 +17,42 @@ from tests.test_base import BaseTest
 
 class TestBenchmark(BaseTest):
 
-    def test_benchmark_regression(self):
+    num_features = 3
+    corr_threshold = 0.5
+    alpha = 1000
+    tree_params = {"random_state": 123, "n_estimators": 100}
 
+    selectors = {
+        "corr_pearson": SelectionMethod.Correlation(corr_threshold, method="pearson"),
+        "corr_kendall": SelectionMethod.Correlation(corr_threshold, method="kendall"),
+        "corr_spearman": SelectionMethod.Correlation(corr_threshold, method="spearman"),
+        "univ_anova": SelectionMethod.Statistical(num_features, method="anova"),
+        "univ_chi_square": SelectionMethod.Statistical(num_features, method="chi_square"),
+        "univ_mutual_info": SelectionMethod.Statistical(num_features, method="mutual_info"),
+        "linear": SelectionMethod.Linear(num_features, regularization="none"),
+        "lasso": SelectionMethod.Linear(num_features, regularization="lasso", alpha=alpha),
+        "ridge": SelectionMethod.Linear(num_features, regularization="ridge", alpha=alpha),
+        "random_forest": SelectionMethod.TreeBased(num_features),
+        "xgboost_clf": SelectionMethod.TreeBased(num_features, estimator=XGBClassifier(**tree_params)),
+        "xgboost_reg": SelectionMethod.TreeBased(num_features, estimator=XGBRegressor(**tree_params)),
+        "extra_clf": SelectionMethod.TreeBased(num_features, estimator=ExtraTreesClassifier(**tree_params)),
+        "extra_reg": SelectionMethod.TreeBased(num_features, estimator=ExtraTreesRegressor(**tree_params)),
+        "lgbm_clf": SelectionMethod.TreeBased(num_features, estimator=LGBMClassifier(**tree_params)),
+        "lgbm_reg": SelectionMethod.TreeBased(num_features, estimator=LGBMRegressor(**tree_params)),
+        "gradient_clf": SelectionMethod.TreeBased(num_features, estimator=GradientBoostingClassifier(**tree_params)),
+        "gradient_reg": SelectionMethod.TreeBased(num_features, estimator=GradientBoostingRegressor(**tree_params)),
+        "adaboost_clf": SelectionMethod.TreeBased(num_features, estimator=AdaBoostClassifier(**tree_params)),
+        "adaboost_reg": SelectionMethod.TreeBased(num_features, estimator=AdaBoostRegressor(**tree_params)),
+        "catboost_clf": SelectionMethod.TreeBased(num_features, estimator=CatBoostClassifier(**tree_params, silent=True)),
+        "catboost_reg": SelectionMethod.TreeBased(num_features, estimator=CatBoostRegressor(**tree_params, silent=True))
+    }
+
+    def test_benchmark_regression(self):
         data, label = get_data_label(load_boston())
         data = data.drop(columns=["CHAS", "NOX", "RM", "DIS", "RAD", "TAX", "PTRATIO", "INDUS"])
 
-        num_features = 3
-        corr_threshold = 0.5
-        alpha = 1000
-        tree_params = {"random_state": 123, "n_estimators": 100}
-
-        selectors = {
-            "corr_pearson": SelectionMethod.Correlation(corr_threshold, method="pearson"),
-            "corr_kendall": SelectionMethod.Correlation(corr_threshold, method="kendall"),
-            "corr_spearman": SelectionMethod.Correlation(corr_threshold, method="spearman"),
-            "univ_anova": SelectionMethod.Statistical(num_features, method="anova"),
-            "univ_chi_square": SelectionMethod.Statistical(num_features, method="chi_square"),
-            "univ_mutual_info": SelectionMethod.Statistical(num_features, method="mutual_info"),
-            "linear": SelectionMethod.Linear(num_features, regularization="none"),
-            "lasso": SelectionMethod.Linear(num_features, regularization="lasso", alpha=alpha),
-            "ridge": SelectionMethod.Linear(num_features, regularization="ridge", alpha=alpha),
-            "random_forest": SelectionMethod.TreeBased(num_features),
-            "xgboost_clf": SelectionMethod.TreeBased(num_features, estimator=XGBClassifier(**tree_params)),
-            "xgboost_reg": SelectionMethod.TreeBased(num_features, estimator=XGBRegressor(**tree_params)),
-            "extra_clf": SelectionMethod.TreeBased(num_features, estimator=ExtraTreesClassifier(**tree_params)),
-            "extra_reg": SelectionMethod.TreeBased(num_features, estimator=ExtraTreesRegressor(**tree_params)),
-            "lgbm_clf": SelectionMethod.TreeBased(num_features, estimator=LGBMClassifier(**tree_params)),
-            "lgbm_reg": SelectionMethod.TreeBased(num_features, estimator=LGBMRegressor(**tree_params)),
-            "gradient_clf": SelectionMethod.TreeBased(num_features, estimator=GradientBoostingClassifier(**tree_params)),
-            "gradient_reg": SelectionMethod.TreeBased(num_features, estimator=GradientBoostingRegressor(**tree_params)),
-            "adaboost_clf": SelectionMethod.TreeBased(num_features, estimator=AdaBoostClassifier(**tree_params)),
-            "adaboost_reg": SelectionMethod.TreeBased(num_features, estimator=AdaBoostRegressor(**tree_params)),
-            "catboost_clf": SelectionMethod.TreeBased(num_features, estimator=CatBoostClassifier(**tree_params, silent=True)),
-            "catboost_reg": SelectionMethod.TreeBased(num_features, estimator=CatBoostRegressor(**tree_params, silent=True))
-        }
-
         # Benchmark
-        score_df, selected_df, runtime_df = benchmark(selectors, data, label, output_filename=None)
+        score_df, selected_df, runtime_df = benchmark(self.selectors, data, label, output_filename=None)
         _ = calculate_statistics(score_df, selected_df)
 
         self.assertListAlmostEqual([0.4787777784012165, 0.47170429073431874, 0.5596288196730658, 0.4400410275414326, 0.5674082968785575],
@@ -86,42 +85,61 @@ class TestBenchmark(BaseTest):
         self.assertListAlmostEqual([0.10947144861974874, 0.020211076089938374, 0.08416074180466389, 0.045604950489313435, 0.7405517829963355],
                                    score_df["random_forest"].to_list())
 
-    def test_benchmark_classification(self):
-
-        data, label = get_data_label(load_iris())
-
-        num_features = 3
-        corr_threshold = 0.5
-        alpha = 1000
-        tree_params = {"random_state": 123, "n_estimators": 100}
-
-        selectors = {
-            "corr_pearson": SelectionMethod.Correlation(corr_threshold, method="pearson"),
-            "corr_kendall": SelectionMethod.Correlation(corr_threshold, method="kendall"),
-            "corr_spearman": SelectionMethod.Correlation(corr_threshold, method="spearman"),
-            "univ_anova": SelectionMethod.Statistical(num_features, method="anova"),
-            "univ_chi_square": SelectionMethod.Statistical(num_features, method="chi_square"),
-            "univ_mutual_info": SelectionMethod.Statistical(num_features, method="mutual_info"),
-            "linear": SelectionMethod.Linear(num_features, regularization="none"),
-            "lasso": SelectionMethod.Linear(num_features, regularization="lasso", alpha=alpha),
-            "ridge": SelectionMethod.Linear(num_features, regularization="ridge", alpha=alpha),
-            "random_forest": SelectionMethod.TreeBased(num_features),
-            "xgboost_clf": SelectionMethod.TreeBased(num_features, estimator=XGBClassifier(**tree_params)),
-            "xgboost_reg": SelectionMethod.TreeBased(num_features, estimator=XGBRegressor(**tree_params)),
-            "extra_clf": SelectionMethod.TreeBased(num_features, estimator=ExtraTreesClassifier(**tree_params)),
-            "extra_reg": SelectionMethod.TreeBased(num_features, estimator=ExtraTreesRegressor(**tree_params)),
-            "lgbm_clf": SelectionMethod.TreeBased(num_features, estimator=LGBMClassifier(**tree_params)),
-            "lgbm_reg": SelectionMethod.TreeBased(num_features, estimator=LGBMRegressor(**tree_params)),
-            "gradient_clf": SelectionMethod.TreeBased(num_features, estimator=GradientBoostingClassifier(**tree_params)),
-            "gradient_reg": SelectionMethod.TreeBased(num_features, estimator=GradientBoostingRegressor(**tree_params)),
-            "adaboost_clf": SelectionMethod.TreeBased(num_features, estimator=AdaBoostClassifier(**tree_params)),
-            "adaboost_reg": SelectionMethod.TreeBased(num_features, estimator=AdaBoostRegressor(**tree_params)),
-            "catboost_clf": SelectionMethod.TreeBased(num_features, estimator=CatBoostClassifier(**tree_params, silent=True)),
-            "catboost_reg": SelectionMethod.TreeBased(num_features, estimator=CatBoostRegressor(**tree_params, silent=True))
-        }
+    def test_benchmark_regression_cv(self):
+        data, label = get_data_label(load_boston())
+        data = data.drop(columns=["CHAS", "NOX", "RM", "DIS", "RAD", "TAX", "PTRATIO", "INDUS"])
 
         # Benchmark
-        score_df, selected_df, runtime_df = benchmark(selectors, data, label, output_filename=None)
+        score_df, selected_df, runtime_df = benchmark(self.selectors, data, label, cv=5, output_filename=None)
+        _ = calculate_statistics(score_df, selected_df)
+
+        # Aggregate scores from different cv-folds
+        score_df = score_df.groupby(score_df.index).mean()
+
+        self.assertListAlmostEqual(
+            [0.5598624197527886, 0.43999689309372514, 0.47947203347292133, 0.5677393697964164, 0.4718904343871402],
+            score_df["corr_pearson"].to_list())
+
+        self.assertListAlmostEqual(
+            [0.5133150872001859, 0.33830236220280874, 0.5355471187677026, 0.4944995007684703, 0.4812959438381611],
+            score_df["corr_kendall"].to_list())
+
+        self.assertListAlmostEqual(
+            [0.6266784101694156, 0.3922216387923788, 0.6538541627239243, 0.598348546553966, 0.5537572894805117],
+            score_df["corr_spearman"].to_list())
+
+        self.assertListAlmostEqual(
+            [66.9096213925407, 50.470199216622746, 71.84642313219175, 481.0566386481166, 60.5346993182466],
+            score_df["univ_anova"].to_list())
+
+        self.assertListAlmostEqual([0, 0, 0, 0, 0],
+                                   score_df["univ_chi_square"].to_list())
+
+        self.assertListAlmostEqual(
+            [0.31315151982855777, 0.16552049446241074, 0.3376809619388398, 0.681986210957143, 0.18450178283973817],
+            score_df["univ_mutual_info"].to_list())
+
+        self.assertListAlmostEqual(
+            [0.06157747888912044, 0.006445566885590223, 0.06693250180688959, 0.9576028432508157, 0.053796504696545476],
+            score_df["linear"].to_list())
+
+        self.assertListAlmostEqual(
+            [0.05329389111187177, 0.007117077997740284, 0.054563375238215125, 0.9260391103473467, 0.05071613235478144],
+            score_df["lasso"].to_list())
+
+        self.assertListAlmostEqual(
+            [0.061567603158881413, 0.006446613222308434, 0.06694625250225411, 0.9575175129470551, 0.05379855880797472],
+            score_df["ridge"].to_list())
+
+        self.assertListAlmostEqual(
+            [0.07819877553940296, 0.04385018441841779, 0.11432712180337742, 0.7401304941703286, 0.023493424068473153],
+            score_df["random_forest"].to_list())
+
+    def test_benchmark_classification(self):
+        data, label = get_data_label(load_iris())
+
+        # Benchmark
+        score_df, selected_df, runtime_df = benchmark(self.selectors, data, label, output_filename=None)
         _ = calculate_statistics(score_df, selected_df)
 
         self.assertListAlmostEqual([0.7018161715727902, 0.47803395524999537, 0.8157648279049796, 0.7867331225527027],
@@ -152,4 +170,44 @@ class TestBenchmark(BaseTest):
                                    score_df["ridge"].to_list())
 
         self.assertListAlmostEqual([0.09210348279677849, 0.03045933928742506, 0.4257647994615192, 0.45167237845427727],
+                                   score_df["random_forest"].to_list())
+
+    def test_benchmark_classification_cv(self):
+        data, label = get_data_label(load_iris())
+
+        # Benchmark
+        score_df, selected_df, runtime_df = benchmark(self.selectors, data, label, cv=5, output_filename=None)
+        _ = calculate_statistics(score_df, selected_df)
+
+        # Aggregate scores from different cv-folds
+        score_df = score_df.groupby(score_df.index).mean()
+
+        self.assertListAlmostEqual([0.8161221983271784, 0.7871883928143776, 0.7020705184086643, 0.4793198034473529],
+                                   score_df["corr_pearson"].to_list())
+
+        self.assertListAlmostEqual([0.6780266710547757, 0.6550828618428932, 0.6125815664695313, 0.35594860548691776],
+                                   score_df["corr_kendall"].to_list())
+
+        self.assertListAlmostEqual([0.78225620681015, 0.7652859083343029, 0.7201874607448919, 0.44222588698925963],
+                                   score_df["corr_spearman"].to_list())
+
+        self.assertListAlmostEqual([946.9891701851375, 781.7441886012473, 95.65931730842011, 39.49994604080157],
+                                   score_df["univ_anova"].to_list())
+
+        self.assertListAlmostEqual([92.9884264821005, 53.62326775665224, 8.659084856298207, 2.9711267637858163],
+                                   score_df["univ_chi_square"].to_list())
+
+        self.assertListAlmostEqual([0.994113677302704, 0.9907696444894937, 0.4998955427118911, 0.2298786031192229],
+                                   score_df["univ_mutual_info"].to_list())
+
+        self.assertListAlmostEqual([0.22327603204146848, 0.03543066514916661, 0.26254667473769594, 0.506591069316828],
+                                   score_df["linear"].to_list())
+
+        self.assertListAlmostEqual([0.280393459805252, 0.9489351779830099, 0.6627768115497065, 0.4761878539373159],
+                                   score_df["lasso"].to_list())
+
+        self.assertListAlmostEqual([1.1049393460379105e-15, 2.0872192862952944e-15, 6.504056552595708e-16, 4.218847493575594e-16],
+                                   score_df["ridge"].to_list())
+
+        self.assertListAlmostEqual([0.4185294825699565, 0.4472560913161835, 0.10091608418224696, 0.03329834193161316],
                                    score_df["random_forest"].to_list())
