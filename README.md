@@ -125,6 +125,18 @@ plot_importance(df)
 
 Selective is available to install as `pip install selective`. 
 
+## Source 
+
+Alternatively, you can build a wheel package on your platform from scratch using the source code:
+
+```bash
+git clone https://github.com/fidelity/selective.git
+cd selective
+pip install setuptools wheel # if wheel is not installed
+python setup.py sdist bdist_wheel
+pip install dist/selective-X.X.X-py3-none-any.whl
+```
+
 ## Support
 
 Please submit bug reports and feature requests as [Issues](https://github.com/fidelity/selective/issues).
