@@ -638,6 +638,39 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
     return score_df, selected_df, runtime_df
 
 
+def _parallel_bench():
+    method_to_runtime = {}
+    score_df = pd.DataFrame(index=data.columns)
+    selected_df = pd.DataFrame(index=data.columns)
+    for method_name, method in selectors.items():
+        selector = Selective(method)
+        t0 = time()
+        if verbose:
+            print("\n>>> Running", method_name)
+        scores = None
+        selected = []
+        try:
+            subset = selector.fit_transform(data, labels)
+            scores = selector.get_absolute_scores()
+            selected = [1 if c in subset.columns else 0 for c in data.columns]
+            method_to_runtime[method_name] = round((time() - t0) / 60, 2)
+        except Exception as exp:
+            print("Exception", exp)
+            scores = np.repeat(0, len(data.columns))
+            selected = np.repeat(0, len(data.columns))
+            method_to_runtime[method_name] = str(round((time() - t0) / 60, 2)) + " (exception)"
+        finally:
+            score_df[method_name] = scores
+            selected_df[method_name] = selected
+            if output_filename is not None:
+                output_file.write(method_name + " " + str(method_to_runtime[method_name]) + "\n")
+                output_file.write(str(selected) + "\n")
+                output_file.write(str(scores) + "\n")
+            if verbose:
+                print(f"<<< Done! Time taken: {(time() - t0) / 60:.2f} minutes")
+
+
+
 def calculate_statistics(scores: pd.DataFrame,
                          selected: pd.DataFrame,
                          columns: Optional[list] = None,
