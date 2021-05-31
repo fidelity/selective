@@ -24,6 +24,7 @@ from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.model_selection import KFold
 from xgboost import XGBClassifier, XGBRegressor
+from joblib import Parallel, delayed
 
 from feature.base import _BaseDispatcher, _BaseSupervisedSelector, _BaseUnsupervisedSelector
 from feature.correlation import _Correlation
@@ -480,6 +481,7 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
               output_filename: Optional[str] = None,
               drop_zero_variance_features: Optional[bool] = True,
               verbose: bool = False,
+              n_jobs: int = 1,
               seed: int = Constants.default_seed) \
         -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
@@ -525,7 +527,8 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
                       labels=labels,
                       output_filename=output_filename,
                       drop_zero_variance_features=drop_zero_variance_features,
-                      verbose=verbose)
+                      verbose=verbose,
+                      n_jobs=n_jobs)
     else:
 
         # Create K-Fold object
@@ -555,7 +558,8 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
                                                                 labels=train_labels,
                                                                 output_filename=output_filename,
                                                                 drop_zero_variance_features=drop_zero_variance_features,
-                                                                verbose=False)
+                                                                verbose=False,
+                                                                n_jobs=n_jobs)
 
             # Concatenate data frames
             score_df = pd.concat((score_df, score_cv_df))
@@ -574,6 +578,7 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
                                       SelectionMethod.Statistical,
                                       SelectionMethod.Variance]],
            data: pd.DataFrame,
+           n_jobs: int,
            labels: Optional[pd.Series] = None,
            output_filename: Optional[str] = None,
            drop_zero_variance_features: Optional[bool] = True,
@@ -605,71 +610,68 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
     method_to_runtime = {}
     score_df = pd.DataFrame(index=data.columns)
     selected_df = pd.DataFrame(index=data.columns)
-    for method_name, method in selectors.items():
-        selector = Selective(method)
-        t0 = time()
-        if verbose:
-            print("\n>>> Running", method_name)
-        scores = None
-        selected = []
-        try:
-            subset = selector.fit_transform(data, labels)
-            scores = selector.get_absolute_scores()
-            selected = [1 if c in subset.columns else 0 for c in data.columns]
-            method_to_runtime[method_name] = round((time() - t0) / 60, 2)
-        except Exception as exp:
-            print("Exception", exp)
-            scores = np.repeat(0, len(data.columns))
-            selected = np.repeat(0, len(data.columns))
-            method_to_runtime[method_name] = str(round((time() - t0) / 60, 2)) + " (exception)"
-        finally:
-            score_df[method_name] = scores
-            selected_df[method_name] = selected
-            if output_filename is not None:
-                output_file.write(method_name + " " + str(method_to_runtime[method_name]) + "\n")
-                output_file.write(str(selected) + "\n")
-                output_file.write(str(scores) + "\n")
-            if verbose:
-                print(f"<<< Done! Time taken: {(time() - t0) / 60:.2f} minutes")
+
+    # Parallel
+    size = len(selectors.items())
+    if n_jobs < 0:
+        n_jobs = max(mp.cpu_count() + 1 + n_jobs, 1)
+    n_jobs = min(n_jobs, size)
+
+    r = Parallel(n_jobs=n_jobs, verbose=10, require='sharedmem')(
+        delayed(_parallel_bench)(
+            data, labels, method_to_runtime, score_df,
+            selected_df, method_name, method, verbose,
+            output_filename)
+        for method_name, method in selectors.items())
+    score_dfs, selected_dfs, method_to_runtimes = zip(*r)
+    score_df = score_dfs[0]
+    selected_df = selected_dfs[0]
 
     # Format
     runtime_df = pd.Series(method_to_runtime).to_frame("runtime").rename_axis("method").reset_index()
 
     return score_df, selected_df, runtime_df
 
-
-def _parallel_bench():
-    method_to_runtime = {}
-    score_df = pd.DataFrame(index=data.columns)
-    selected_df = pd.DataFrame(index=data.columns)
-    for method_name, method in selectors.items():
-        selector = Selective(method)
-        t0 = time()
+def _parallel_bench(data: pd.DataFrame,
+                    labels: Optional[pd.Series],
+                    method_to_runtime: dict,
+                    score_df: pd.DataFrame,
+                    selected_df: pd.DataFrame,
+                    method_name: str,
+                    method: Union[SelectionMethod.Correlation,
+                                      SelectionMethod.Linear,
+                                      SelectionMethod.TreeBased,
+                                      SelectionMethod.Statistical,
+                                      SelectionMethod.Variance],
+                    verbose: bool,
+                    output_filename: Optional[str]):
+    selector = Selective(method)
+    t0 = time()
+    if verbose:
+        print("\n>>> Running", method_name)
+    scores = None
+    selected = []
+    try:
+        subset = selector.fit_transform(data, labels)
+        scores = selector.get_absolute_scores()
+        selected = [1 if c in subset.columns else 0 for c in data.columns]
+        method_to_runtime[method_name] = round((time() - t0) / 60, 2)
+    except Exception as exp:
+        print("Exception", exp)
+        scores = np.repeat(0, len(data.columns))
+        selected = np.repeat(0, len(data.columns))
+        method_to_runtime[method_name] = str(round((time() - t0) / 60, 2)) + " (exception)"
+    finally:
+        score_df[method_name] = scores
+        selected_df[method_name] = selected
+        if output_filename is not None:
+            output_file.write(method_name + " " + str(method_to_runtime[method_name]) + "\n")
+            output_file.write(str(selected) + "\n")
+            output_file.write(str(scores) + "\n")
         if verbose:
-            print("\n>>> Running", method_name)
-        scores = None
-        selected = []
-        try:
-            subset = selector.fit_transform(data, labels)
-            scores = selector.get_absolute_scores()
-            selected = [1 if c in subset.columns else 0 for c in data.columns]
-            method_to_runtime[method_name] = round((time() - t0) / 60, 2)
-        except Exception as exp:
-            print("Exception", exp)
-            scores = np.repeat(0, len(data.columns))
-            selected = np.repeat(0, len(data.columns))
-            method_to_runtime[method_name] = str(round((time() - t0) / 60, 2)) + " (exception)"
-        finally:
-            score_df[method_name] = scores
-            selected_df[method_name] = selected
-            if output_filename is not None:
-                output_file.write(method_name + " " + str(method_to_runtime[method_name]) + "\n")
-                output_file.write(str(selected) + "\n")
-                output_file.write(str(scores) + "\n")
-            if verbose:
-                print(f"<<< Done! Time taken: {(time() - t0) / 60:.2f} minutes")
+            print(f"<<< Done! Time taken: {(time() - t0) / 60:.2f} minutes")
 
-
+    return score_df, selected_df, method_to_runtime
 
 def calculate_statistics(scores: pd.DataFrame,
                          selected: pd.DataFrame,
