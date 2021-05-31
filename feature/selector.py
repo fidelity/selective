@@ -11,7 +11,7 @@ This module defines the public interface of the **Selective Library** for featur
 """
 
 from time import time
-from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional
+from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional, IO, Any
 
 import numpy as np
 import pandas as pd
@@ -25,6 +25,7 @@ from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegress
 from sklearn.model_selection import KFold
 from xgboost import XGBClassifier, XGBRegressor
 from joblib import Parallel, delayed
+import multiprocessing as mp
 
 from feature.base import _BaseDispatcher, _BaseSupervisedSelector, _BaseUnsupervisedSelector
 from feature.correlation import _Correlation
@@ -440,7 +441,7 @@ class Selective:
                                                  SelectionMethod.TreeBased,
                                                  SelectionMethod.Statistical,
                                                  SelectionMethod.Variance)),
-                   TypeError("Unknown selection type: " + str(selection_method)))
+                   TypeError("Unknown selection type: " + str(selection_method) + " " + str(type(selection_method))))
 
         # Selection method value
         selection_method._validate()
@@ -596,7 +597,7 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
     check_true(selectors is not None, ValueError("Benchmark selectors cannot be none."))
     check_true(data is not None, ValueError("Benchmark data cannot be none."))
 
-    # Output files
+    # Output file
     if output_filename is not None:
         output_file = open(output_filename, "a")
     else:
@@ -611,21 +612,29 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
     score_df = pd.DataFrame(index=data.columns)
     selected_df = pd.DataFrame(index=data.columns)
 
-    # Parallel
+    # Find the effective number of jobs
     size = len(selectors.items())
     if n_jobs < 0:
         n_jobs = max(mp.cpu_count() + 1 + n_jobs, 1)
     n_jobs = min(n_jobs, size)
 
-    r = Parallel(n_jobs=n_jobs, verbose=10, require='sharedmem')(
+    # Parallel benchmarks for each method
+    output_list = Parallel(n_jobs=n_jobs, verbose=10, require="sharedmem")(
         delayed(_parallel_bench)(
-            data, labels, method_to_runtime, score_df,
-            selected_df, method_name, method, verbose,
-            output_filename)
+            data, labels, method_name, method, verbose)
         for method_name, method in selectors.items())
-    score_dfs, selected_dfs, method_to_runtimes = zip(*r)
-    score_df = score_dfs[0]
-    selected_df = selected_dfs[0]
+
+    # Collect the output from each method
+    for output in output_list:
+        for method_name, results_dict in output.items():
+            score_df[method_name] = results_dict["scores"]
+            selected_df[method_name] = results_dict["selected"]
+            method_to_runtime[method_name] = results_dict["runtime"]
+
+            if output_filename is not None:
+                output_file.write(method_name + " " + str(method_to_runtime[method_name]) + "\n")
+                output_file.write(str(results_dict["selected"]) + "\n")
+                output_file.write(str(results_dict["scores"]) + "\n")
 
     # Format
     runtime_df = pd.Series(method_to_runtime).to_frame("runtime").rename_axis("method").reset_index()
@@ -634,44 +643,39 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
 
 def _parallel_bench(data: pd.DataFrame,
                     labels: Optional[pd.Series],
-                    method_to_runtime: dict,
-                    score_df: pd.DataFrame,
-                    selected_df: pd.DataFrame,
                     method_name: str,
                     method: Union[SelectionMethod.Correlation,
-                                      SelectionMethod.Linear,
-                                      SelectionMethod.TreeBased,
-                                      SelectionMethod.Statistical,
-                                      SelectionMethod.Variance],
-                    verbose: bool,
-                    output_filename: Optional[str]):
+                                  SelectionMethod.Linear,
+                                  SelectionMethod.TreeBased,
+                                  SelectionMethod.Statistical,
+                                  SelectionMethod.Variance],
+                    verbose: bool):
+
     selector = Selective(method)
     t0 = time()
     if verbose:
-        print("\n>>> Running", method_name)
-    scores = None
-    selected = []
+        run_str = "\n>>> Running " + method_name
+        print(run_str, flush=True)
+
     try:
         subset = selector.fit_transform(data, labels)
         scores = selector.get_absolute_scores()
         selected = [1 if c in subset.columns else 0 for c in data.columns]
-        method_to_runtime[method_name] = round((time() - t0) / 60, 2)
+        runtime = round((time() - t0) / 60, 2)
     except Exception as exp:
         print("Exception", exp)
         scores = np.repeat(0, len(data.columns))
         selected = np.repeat(0, len(data.columns))
-        method_to_runtime[method_name] = str(round((time() - t0) / 60, 2)) + " (exception)"
+        runtime = str(round((time() - t0) / 60, 2)) + " (exception)"
     finally:
-        score_df[method_name] = scores
-        selected_df[method_name] = selected
-        if output_filename is not None:
-            output_file.write(method_name + " " + str(method_to_runtime[method_name]) + "\n")
-            output_file.write(str(selected) + "\n")
-            output_file.write(str(scores) + "\n")
         if verbose:
-            print(f"<<< Done! Time taken: {(time() - t0) / 60:.2f} minutes")
+            done_str = f"<<< Done! {method_name} Time taken: {(time() - t0) / 60:.2f} minutes"
+            print(done_str, flush=True)
 
-    return score_df, selected_df, method_to_runtime
+    results_dict = {"scores": scores, "selected": selected, "runtime": runtime}
+
+    return {method_name: results_dict}
+
 
 def calculate_statistics(scores: pd.DataFrame,
                          selected: pd.DataFrame,
