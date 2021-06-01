@@ -510,6 +510,8 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
         Whether to drop features with zero variance before running feature selector methods or not.
     verbose: bool, optional (default=False)
         Whether to print progress messages or not.
+    n_jobs: int, TODO
+
     seed: int, optional (default=Constants.default_seed)
         The random seed to initialize the random number generator.
 
@@ -579,11 +581,11 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
                                       SelectionMethod.Statistical,
                                       SelectionMethod.Variance]],
            data: pd.DataFrame,
-           n_jobs: int,
            labels: Optional[pd.Series] = None,
            output_filename: Optional[str] = None,
            drop_zero_variance_features: Optional[bool] = True,
-           verbose: bool = False) \
+           verbose: bool = False,
+           n_jobs: int = 1) \
         -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Benchmark with a given set of feature selectors.
@@ -640,6 +642,7 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
     runtime_df = pd.Series(method_to_runtime).to_frame("runtime").rename_axis("method").reset_index()
 
     return score_df, selected_df, runtime_df
+
 
 def _parallel_bench(data: pd.DataFrame,
                     labels: Optional[pd.Series],

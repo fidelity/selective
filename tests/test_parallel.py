@@ -52,13 +52,24 @@ class TestParallel(BaseTest):
         data = data.drop(columns=["CHAS", "NOX", "RM", "DIS", "RAD", "TAX", "PTRATIO", "INDUS"])
 
         # Benchmark
-        score_df, selected_df, runtime_df = benchmark(self.selectors, data, label, verbose=True, n_jobs=2)
-        stats_df = calculate_statistics(score_df, selected_df)
+        score_df_sequential, selected_df_sequential, runtime_df_sequential = benchmark(self.selectors, data, label)
+
+        score_df_p1, selected_df_p1, runtime_df_p1 = benchmark(self.selectors, data, label, verbose=True, n_jobs=1)
+
+        score_df_p2, selected_df_p2, runtime_df_p2 = benchmark(self.selectors, data, label, verbose=True, n_jobs=2)
+
+        # TODO assert test results
+        # self.assertListAlmostEqual(list(score_df["linear"]), [0.069011, 0.054086, 0.061452, 0.006510, 0.954662])
+
+    def test_benchmark_classification(self):
+        data, label = get_data_label(load_iris())
+
+        # Benchmark
+        score_df, selected_df, runtime_df = benchmark(self.selectors, data, label, output_filename=None, n_jobs=2)
+        _ = calculate_statistics(score_df, selected_df)
 
         print(score_df)
         print(selected_df)
-        print(runtime_df)
-        print(stats_df)
 
     # def test_benchmark_regression_cv(self):
     #     data, label = get_data_label(load_boston())
@@ -70,15 +81,10 @@ class TestParallel(BaseTest):
     #
     #     # Aggregate scores from different cv-folds
     #     score_df = score_df.groupby(score_df.index).mean()
-    #
-    # def test_benchmark_classification(self):
-    #     data, label = get_data_label(load_iris())
-    #
-    #     # Benchmark
-    #     score_df, selected_df, runtime_df = benchmark(self.selectors, data, label, output_filename=None)
-    #     _ = calculate_statistics(score_df, selected_df)
-    #
-    #
+
+
+
+
     # def test_benchmark_classification_cv(self):
     #     data, label = get_data_label(load_iris())
     #
