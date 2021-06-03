@@ -510,8 +510,10 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
         Whether to drop features with zero variance before running feature selector methods or not.
     verbose: bool, optional (default=False)
         Whether to print progress messages or not.
-    n_jobs: int, TODO
-
+    n_jobs: int, optional (default=1)
+        Number of concurrent processes/threads to use in parallelized routines.
+        If set to -1, all CPUs are used.
+        If set to -2, all CPUs but one are used, and so on.
     seed: int, optional (default=Constants.default_seed)
         The random seed to initialize the random number generator.
 
@@ -652,7 +654,18 @@ def _parallel_bench(data: pd.DataFrame,
                                   SelectionMethod.TreeBased,
                                   SelectionMethod.Statistical,
                                   SelectionMethod.Variance],
-                    verbose: bool):
+                    verbose: bool) \
+                -> Dict[str, Dict[str, Union[pd.DataFrame, list, float]]]:
+    """
+    Benchmark with a given set of feature selectors.
+    Return a dictionary of feature selection method names with their corresponding scores,
+    selected features and runtime.
+
+    Returns
+    -------
+    Dictionary of feature selection method names with their corresponding scores, selected features
+    and runtime.
+    """
 
     selector = Selective(method)
     t0 = time()
