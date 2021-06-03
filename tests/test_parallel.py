@@ -53,23 +53,57 @@ class TestParallel(BaseTest):
 
         # Benchmark
         score_df_sequential, selected_df_sequential, runtime_df_sequential = benchmark(self.selectors, data, label)
-
         score_df_p1, selected_df_p1, runtime_df_p1 = benchmark(self.selectors, data, label, verbose=True, n_jobs=1)
-
         score_df_p2, selected_df_p2, runtime_df_p2 = benchmark(self.selectors, data, label, verbose=True, n_jobs=2)
 
-        # TODO assert test results
-        # self.assertListAlmostEqual(list(score_df["linear"]), [0.069011, 0.054086, 0.061452, 0.006510, 0.954662])
+        # Scores
+        self.assertListAlmostEqual([0.069011, 0.054086, 0.061452, 0.006510, 0.954662],
+                                   score_df_sequential["linear"].to_list())
+        self.assertListAlmostEqual([0.056827, 0.051008, 0.053192, 0.007176, 0.923121],
+                                   score_df_sequential["lasso"].to_list())
+
+        self.assertListAlmostEqual(score_df_sequential["linear"].to_list(), score_df_p1["linear"].to_list())
+        self.assertListAlmostEqual(score_df_sequential["linear"].to_list(), score_df_p2["linear"].to_list())
+        self.assertListAlmostEqual(score_df_sequential["lasso"].to_list(), score_df_p1["lasso"].to_list())
+        self.assertListAlmostEqual(score_df_sequential["lasso"].to_list(), score_df_p2["lasso"].to_list())
+
+        # Selected
+        self.assertListEqual([1, 0, 1, 0, 1], selected_df_sequential["linear"].to_list())
+        self.assertListEqual([1, 0, 1, 0, 1], selected_df_sequential["lasso"].to_list())
+
+        self.assertListEqual(selected_df_sequential["linear"].to_list(), selected_df_p1["linear"].to_list())
+        self.assertListEqual(selected_df_sequential["linear"].to_list(), selected_df_p2["linear"].to_list())
+        self.assertListEqual(selected_df_sequential["lasso"].to_list(), selected_df_p1["lasso"].to_list())
+        self.assertListEqual(selected_df_sequential["lasso"].to_list(), selected_df_p2["lasso"].to_list())
 
     def test_benchmark_classification(self):
         data, label = get_data_label(load_iris())
 
         # Benchmark
-        score_df, selected_df, runtime_df = benchmark(self.selectors, data, label, output_filename=None, n_jobs=2)
-        _ = calculate_statistics(score_df, selected_df)
+        score_df_sequential, selected_df_sequential, runtime_df_sequential = benchmark(self.selectors, data, label)
+        score_df_p1, selected_df_p1, runtime_df_p1 = benchmark(self.selectors, data, label, n_jobs=1)
+        score_df_p2, selected_df_p2, runtime_df_p2 = benchmark(self.selectors, data, label, n_jobs=2)
+        #_ = calculate_statistics(score_df, selected_df)
 
-        print(score_df)
-        print(selected_df)
+        # Scores
+        self.assertListAlmostEqual([0.289930, 0.560744, 0.262251, 0.042721],
+                                   list(score_df_sequential["linear"]))
+        self.assertListAlmostEqual([0.764816, 0.593482, 0.365352, 1.015095],
+                                   list(score_df_sequential["lasso"]))
+
+        self.assertListAlmostEqual(score_df_sequential["linear"].to_list(), score_df_p1["linear"].to_list())
+        self.assertListAlmostEqual(score_df_sequential["linear"].to_list(), score_df_p2["linear"].to_list())
+        self.assertListAlmostEqual(score_df_sequential["lasso"].to_list(), score_df_p1["lasso"].to_list())
+        self.assertListAlmostEqual(score_df_sequential["lasso"].to_list(), score_df_p2["lasso"].to_list())
+
+        # Selected
+        self.assertListEqual([1, 1, 1, 0], selected_df_sequential["linear"].to_list())
+        self.assertListEqual([1, 1, 0, 1], selected_df_sequential["lasso"].to_list())
+
+        self.assertListEqual(selected_df_sequential["linear"].to_list(), selected_df_p1["linear"].to_list())
+        self.assertListEqual(selected_df_sequential["linear"].to_list(), selected_df_p2["linear"].to_list())
+        self.assertListEqual(selected_df_sequential["lasso"].to_list(), selected_df_p1["lasso"].to_list())
+        self.assertListEqual(selected_df_sequential["lasso"].to_list(), selected_df_p2["lasso"].to_list())
 
     # def test_benchmark_regression_cv(self):
     #     data, label = get_data_label(load_boston())
