@@ -5,7 +5,7 @@
 
 """
 :Author: FMR LLC
-:Version: 1.0.0 of August 10, 2020
+:Version: 1.1.0 of August 10, 2020
 
 This module defines the public interface of the **Selective Library** for feature selection.
 """
@@ -631,7 +631,7 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
     n_jobs = min(n_jobs, size)
 
     # Parallel benchmarks for each method
-    output_list = Parallel(n_jobs=n_jobs, backend=backend, verbose=10, require="sharedmem")(
+    output_list = Parallel(n_jobs=n_jobs, backend=backend, require="sharedmem")(
         delayed(_parallel_bench)(
             data, labels, method_name, method, verbose)
         for method_name, method in selectors.items())
