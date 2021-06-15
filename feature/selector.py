@@ -10,13 +10,15 @@
 This module defines the public interface of the **Selective Library** for feature selection.
 """
 
+import multiprocessing as mp
 from time import time
-from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional, IO, Any
+from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional
 
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from catboost import CatBoostClassifier, CatBoostRegressor
+from joblib import Parallel, delayed
 from lightgbm import LGBMClassifier, LGBMRegressor
 from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -24,8 +26,6 @@ from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.model_selection import KFold
 from xgboost import XGBClassifier, XGBRegressor
-from joblib import Parallel, delayed
-import multiprocessing as mp
 
 from feature.base import _BaseDispatcher, _BaseSupervisedSelector, _BaseUnsupervisedSelector
 from feature.correlation import _Correlation

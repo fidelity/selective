@@ -1,4 +1,5 @@
 catboost
+joblib
 lightgbm
 minepy
 numpy
