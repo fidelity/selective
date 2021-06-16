@@ -5,7 +5,7 @@
 
 """
 :Author: FMR LLC
-:Version: 1.1.0 of August 10, 2020
+:Version: 1.1.0 of June 16, 2021
 
 This module defines the public interface of the **Selective Library** for feature selection.
 """
