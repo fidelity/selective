@@ -483,7 +483,6 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
               drop_zero_variance_features: Optional[bool] = True,
               verbose: bool = False,
               n_jobs: int = 1,
-              backend: Optional[str] = None,
               seed: int = Constants.default_seed) \
         -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
@@ -515,10 +514,6 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
         Number of concurrent processes/threads to use in parallelized routines.
         If set to -1, all CPUs are used.
         If set to -2, all CPUs but one are used, and so on.
-    backend: str, optional (default=None)
-        A parallelization backend implementation supported in the joblib library.
-        Supported options are “loky” (used by default), “multiprocessing”, and “threading”.
-        Default value is None. In this case the default backend selected by joblib will be used.
     seed: int, optional (default=Constants.default_seed)
         The random seed to initialize the random number generator.
 
@@ -538,8 +533,7 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
                       output_filename=output_filename,
                       drop_zero_variance_features=drop_zero_variance_features,
                       verbose=verbose,
-                      n_jobs=n_jobs,
-                      backend=backend)
+                      n_jobs=n_jobs)
     else:
 
         # Create K-Fold object
@@ -570,8 +564,7 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
                                                                 output_filename=output_filename,
                                                                 drop_zero_variance_features=drop_zero_variance_features,
                                                                 verbose=False,
-                                                                n_jobs=n_jobs,
-                                                                backend=backend)
+                                                                n_jobs=n_jobs)
 
             # Concatenate data frames
             score_df = pd.concat((score_df, score_cv_df))
@@ -594,8 +587,7 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
            output_filename: Optional[str] = None,
            drop_zero_variance_features: Optional[bool] = True,
            verbose: bool = False,
-           n_jobs: int = 1,
-           backend: Optional[str] = None) \
+           n_jobs: int = 1) \
         -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Benchmark with a given set of feature selectors.
@@ -631,7 +623,7 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
     n_jobs = min(n_jobs, size)
 
     # Parallel benchmarks for each method
-    output_list = Parallel(n_jobs=n_jobs, backend=backend, require="sharedmem")(
+    output_list = Parallel(n_jobs=n_jobs, require="sharedmem")(
         delayed(_parallel_bench)(
             data, labels, method_name, method, verbose)
         for method_name, method in selectors.items())
