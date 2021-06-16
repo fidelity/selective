@@ -100,7 +100,6 @@ print(stats_df)
 ```
 
 
-
 ## Visualization
 
 ```python
@@ -135,6 +134,13 @@ cd selective
 pip install setuptools wheel # if wheel is not installed
 python setup.py sdist bdist_wheel
 pip install dist/selective-X.X.X-py3-none-any.whl
+```
+
+## Test your set up
+
+```
+cd selective
+python -m unittest discover tests
 ```
 
 ## Support
