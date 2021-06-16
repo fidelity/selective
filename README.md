@@ -100,7 +100,6 @@ print(stats_df)
 ```
 
 
-
 ## Visualization
 
 ```python
