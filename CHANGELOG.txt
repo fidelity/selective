@@ -6,7 +6,7 @@ CHANGELOG
 June, 16, 2021 1.1.0
 -------------------------------------------------------------------------------
 
-- Parallelize benchmark function.
+- Parallelize benchmark function. Many thanks to Irmak Bukey (@irmakbky)
 
 -------------------------------------------------------------------------------
 March, 23, 2021 1.0.1
