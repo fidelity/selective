@@ -90,8 +90,12 @@ selectors = {
   "xgboost_regress": SelectionMethod.TreeBased(num_features, estimator=XGBRegressor(**tree_params))
 }
 
-# Benchmark
+# Benchmark (sequential)
 score_df, selected_df, runtime_df = benchmark(selectors, data, label, cv=5)
+print(score_df, "\n\n", selected_df, "\n\n", runtime_df)
+
+# Benchmark (in parallel)
+score_df, selected_df, runtime_df = benchmark(selectors, data, label, cv=5, n_jobs=4)
 print(score_df, "\n\n", selected_df, "\n\n", runtime_df)
 
 # Get benchmark statistics by feature
