@@ -3,15 +3,11 @@
 
 The library provides:
 
-* Simple to complex selection methods: Variance, Correlation, Statistical, Linear, Tree-based, or Custom
-
-* Interoperable with data frames as the input
-
-* Automated task detection. No need to know what feature selection method works with what machine learning task
-
-* Benchmarking multiple selectors using cross-validation
-
-* Inspection of results and feature importance
+* Simple to complex selection methods: Variance, Correlation, Statistical, Linear, Tree-based, or Customized.
+* Interoperable with data frames as the input.
+* Automated task detection. No need to know what feature selection method works with what machine learning task.
+* Benchmarking multiple selectors using cross-validation with built-in parallelization.
+* Inspection of the results and feature importance. 
 
 Selective is developed by the Artificial Intelligence Center of Excellence at Fidelity Investments.
 
