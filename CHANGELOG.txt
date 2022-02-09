@@ -3,6 +3,14 @@ CHANGELOG
 =========
 
 -------------------------------------------------------------------------------
+Feb, 09, 2022 1.0.2
+-------------------------------------------------------------------------------
+
+- Dropped [Maximal Information (MIC)](https://github.com/minepy/minepy) due to inactive backend library
+- MINEPY installation is not compatible with setuptools>=58
+- In addition, MIC is rather slow on large datasets
+
+-------------------------------------------------------------------------------
 March, 23, 2021 1.0.1
 -------------------------------------------------------------------------------
 

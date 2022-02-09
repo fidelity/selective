@@ -202,7 +202,8 @@ class SelectionMethod(NamedTuple):
         the results might be sensitive to exact bin selection.
 
         Maximal information score (MIC) tries to address these gaps by
-        searching for the optimal binnign strategy.
+        searching for the optimal binning strategy.
+        Note: MIC is dropped from Selective due to inactive MINE library
 
         Notes on Randomness:
             - Mutual Info is non-deterministic, depends on the seed value.
@@ -218,7 +219,6 @@ class SelectionMethod(NamedTuple):
             * anova: Anova and Anova F-test (default)
             * chi_square: Chi-Square
             * mutual_info: Mutual Information score
-            * maximal_info: Maximal Information score (MIC)
             * variance_inflation: Variance Inflation factor (VIF)
         """
         num_features: Num = 0.0
@@ -229,8 +229,8 @@ class SelectionMethod(NamedTuple):
             check_true(self.num_features > 0, ValueError("Num features must be greater than zero."))
             if isinstance(self.num_features, float):
                 check_true(self.num_features <= 1, ValueError("Num features ratio must be between [0..1]."))
-            check_true(self.method in ["anova", "chi_square", "mutual_info", "maximal_info", "variance_inflation"],
-                       ValueError("Statistical method can only be anova, chi_square, mutual_info, or maximal_info."))
+            check_true(self.method in ["anova", "chi_square", "mutual_info", "variance_inflation"], # "maximal_info" dropped
+                       ValueError("Statistical method can only be anova, chi_square, or mutual_info."))
 
     class TreeBased(NamedTuple):
         """
