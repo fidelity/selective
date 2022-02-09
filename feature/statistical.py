@@ -5,7 +5,7 @@
 from functools import partial
 from typing import NoReturn, Tuple
 
-from minepy import MINE
+# from minepy import MINE (dropped)
 import numpy as np
 import pandas as pd
 from sklearn.feature_selection import chi2, f_classif, f_regression, mutual_info_classif, mutual_info_regression
@@ -36,11 +36,11 @@ class _Statistical(_BaseSupervisedSelector, _BaseDispatcher):
         self.factory = {"regression_anova": f_regression,
                         "regression_chi_square": None,
                         "regression_mutual_info": partial(mutual_info_regression, random_state=self.seed),
-                        "regression_maximal_info": MINE(),
+                        # "regression_maximal_info": MINE(), # dropped
                         "classification_anova": f_classif,
                         "classification_chi_square": chi2,
                         "classification_mutual_info": partial(mutual_info_classif, random_state=self.seed),
-                        "classification_maximal_info": MINE(),
+                        # "classification_maximal_info": MINE(), # dropped
                         "unsupervised_variance_inflation": variance_inflation_factor}
 
     def get_model_args(self, selection_method) -> Tuple:
@@ -62,7 +62,7 @@ class _Statistical(_BaseSupervisedSelector, _BaseDispatcher):
         # Check scoring compatibility with task
         if score_func is None:
             raise TypeError(method + " cannot be used for task: " + get_task_string(labels))
-        elif isinstance(score_func, MINE) or method == "variance_inflation":
+        elif method == "variance_inflation": # or isinstance(score_func, MINE) (dropped)
             self.imp = score_func
         else:
             # Set sklearn model selector based on scoring function
@@ -71,13 +71,15 @@ class _Statistical(_BaseSupervisedSelector, _BaseDispatcher):
     def fit(self, data: pd.DataFrame, labels: pd.Series) -> NoReturn:
 
         # Calculate absolute scores depending on the method
-        if isinstance(self.imp, MINE):
-            self.abs_scores = []
-            for col in data.columns:
-                self.imp.compute_score(data[col], labels)
-                score = self.imp.mic()
-                self.abs_scores.append(score)
-        elif self.method == "variance_inflation":
+
+        # NOTE: mine is dropped
+        # if isinstance(self.imp, MINE):
+        #     self.abs_scores = []
+        #     for col in data.columns:
+        #         self.imp.compute_score(data[col], labels)
+        #         score = self.imp.mic()
+        #         self.abs_scores.append(score)
+        if self.method == "variance_inflation":
             # VIF is unsupervised, regression between data and each feature
             self.abs_scores = np.array([variance_inflation_factor(data.values, i) for i in range(data.shape[1])])
         else:
