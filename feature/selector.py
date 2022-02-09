@@ -5,18 +5,20 @@
 
 """
 :Author: FMR LLC
-:Version: 1.0.0 of August 10, 2020
+:Version: 1.1.0 of June 16, 2021
 
 This module defines the public interface of the **Selective Library** for feature selection.
 """
 
+import multiprocessing as mp
 from time import time
-from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional, IO, Any
+from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional
 
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from catboost import CatBoostClassifier, CatBoostRegressor
+from joblib import Parallel, delayed
 from lightgbm import LGBMClassifier, LGBMRegressor
 from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -24,8 +26,6 @@ from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.model_selection import KFold
 from xgboost import XGBClassifier, XGBRegressor
-from joblib import Parallel, delayed
-import multiprocessing as mp
 
 from feature.base import _BaseDispatcher, _BaseSupervisedSelector, _BaseUnsupervisedSelector
 from feature.correlation import _Correlation
@@ -510,8 +510,10 @@ def benchmark(selectors: Dict[str, Union[SelectionMethod.Correlation,
         Whether to drop features with zero variance before running feature selector methods or not.
     verbose: bool, optional (default=False)
         Whether to print progress messages or not.
-    n_jobs: int, TODO
-
+    n_jobs: int, optional (default=1)
+        Number of concurrent processes/threads to use in parallelized routines.
+        If set to -1, all CPUs are used.
+        If set to -2, all CPUs but one are used, and so on.
     seed: int, optional (default=Constants.default_seed)
         The random seed to initialize the random number generator.
 
@@ -621,7 +623,7 @@ def _bench(selectors: Dict[str, Union[SelectionMethod.Correlation,
     n_jobs = min(n_jobs, size)
 
     # Parallel benchmarks for each method
-    output_list = Parallel(n_jobs=n_jobs, verbose=10, require="sharedmem")(
+    output_list = Parallel(n_jobs=n_jobs, require="sharedmem")(
         delayed(_parallel_bench)(
             data, labels, method_name, method, verbose)
         for method_name, method in selectors.items())
@@ -652,7 +654,18 @@ def _parallel_bench(data: pd.DataFrame,
                                   SelectionMethod.TreeBased,
                                   SelectionMethod.Statistical,
                                   SelectionMethod.Variance],
-                    verbose: bool):
+                    verbose: bool) \
+                -> Dict[str, Dict[str, Union[pd.DataFrame, list, float]]]:
+    """
+    Benchmark with a given set of feature selectors.
+    Return a dictionary of feature selection method names with their corresponding scores,
+    selected features and runtime.
+
+    Returns
+    -------
+    Dictionary of feature selection method names with their corresponding scores, selected features
+    and runtime.
+    """
 
     selector = Selective(method)
     t0 = time()

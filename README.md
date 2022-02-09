@@ -3,15 +3,11 @@
 
 The library provides:
 
-* Simple to complex selection methods: Variance, Correlation, Statistical, Linear, Tree-based, or Custom
-
-* Interoperable with data frames as the input
-
-* Automated task detection. No need to know what feature selection method works with what machine learning task
-
-* Benchmarking multiple selectors using cross-validation
-
-* Inspection of results and feature importance
+* Simple to complex selection methods: Variance, Correlation, Statistical, Linear, Tree-based, or Customized.
+* Interoperable with data frames as the input.
+* Automated task detection. No need to know what feature selection method works with what machine learning task.
+* Benchmarking multiple selectors using cross-validation with built-in parallelization.
+* Inspection of the results and feature importance. 
 
 Selective is developed by the Artificial Intelligence Center of Excellence at Fidelity Investments.
 
@@ -90,15 +86,18 @@ selectors = {
   "xgboost_regress": SelectionMethod.TreeBased(num_features, estimator=XGBRegressor(**tree_params))
 }
 
-# Benchmark
+# Benchmark (sequential)
 score_df, selected_df, runtime_df = benchmark(selectors, data, label, cv=5)
+print(score_df, "\n\n", selected_df, "\n\n", runtime_df)
+
+# Benchmark (in parallel)
+score_df, selected_df, runtime_df = benchmark(selectors, data, label, cv=5, n_jobs=4)
 print(score_df, "\n\n", selected_df, "\n\n", runtime_df)
 
 # Get benchmark statistics by feature
 stats_df = calculate_statistics(score_df, selected_df)
 print(stats_df)
 ```
-
 
 
 ## Visualization
@@ -135,6 +134,13 @@ cd selective
 pip install setuptools wheel # if wheel is not installed
 python setup.py sdist bdist_wheel
 pip install dist/selective-X.X.X-py3-none-any.whl
+```
+
+## Test your set up
+
+```
+cd selective
+python -m unittest discover tests
 ```
 
 ## Support
