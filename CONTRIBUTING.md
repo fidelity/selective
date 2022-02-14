@@ -1,10 +1,10 @@
-# Contributing to Selective
+# Contributing to our Library
 
 We welcome contributions of all from everybody, and we will make an effort
 to respond to any questions and requests. Code is not the only way to make
 a contribution!
 
-If you end up using Selective in a project, let us know!
+If you end up using our library in a project, give us a star on GitHub!
 
 ## Code Contributions
 
