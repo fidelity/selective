@@ -1,3 +1,6 @@
+[![Downloads](https://static.pepy.tech/personalized-badge/selective?period=month&units=international_system&left_color=grey&right_color=orange&left_text=Downloads)](https://pepy.tech/project/selective)
+
+
 # Selective: Feature Selection Library
 **Selective** is a white-box feature selection library that supports unsupervised and supervised selection methods for classification and regression tasks. 
 
