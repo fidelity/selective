@@ -1,3 +1,6 @@
+[![ci](https://github.com/fidelity/selective/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/fidelity/selective/actions/workflows/ci.yml) [![PyPI version fury.io](https://badge.fury.io/py/selective.svg)](https://pypi.python.org/pypi/selective/) [![PyPI license](https://img.shields.io/pypi/l/selective.svg)](https://pypi.python.org/pypi/selective/) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) [![Downloads](https://static.pepy.tech/personalized-badge/selective?period=total&units=international_system&left_color=grey&right_color=orange&left_text=Downloads)](https://pepy.tech/project/selective)
+
+
 # Selective: Feature Selection Library
 **Selective** is a white-box feature selection library that supports unsupervised and supervised selection methods for classification and regression tasks. 
 
@@ -122,7 +125,7 @@ plot_importance(df)
 
 ## Installation
 
-Selective is available to install as `pip install selective`. 
+Selective requires **Python 3.6+** and can be installed from PyPI using ``pip install selective``.
 
 ## Source 
 
