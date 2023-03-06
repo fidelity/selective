@@ -5,6 +5,7 @@ import pandas as pd
 
 from feature.selector import Selective, SelectionMethod
 from tests.test_base import BaseTest
+from textwiser import TextWiser, Embedding, Transformation
 
 
 class TestText(BaseTest):
@@ -20,7 +21,8 @@ class TestText(BaseTest):
         print(labels)
 
         method = SelectionMethod.TextBased(num_features=1,
-                                           featurization_method=None,
+                                           featurization_method=TextWiser(Embedding.TfIdf(),
+                                                                          Transformation.NMF()),
                                            optimization_method="exact",
                                            cost_metric="unicost")
         selector = Selective(method)
@@ -34,7 +36,8 @@ class TestText(BaseTest):
         labels = None
 
         method = SelectionMethod.TextBased(num_features=3,
-                                           featurization_method=None,
+                                           featurization_method=TextWiser(Embedding.TfIdf(),
+                                                                          Transformation.NMF()),
                                            optimization_method="exact",
                                            cost_metric="diverse")
         selector = Selective(method)
@@ -47,7 +50,8 @@ class TestText(BaseTest):
         labels = None
 
         method = SelectionMethod.TextBased(num_features=3,
-                                           featurization_method=None,
+                                           featurization_method=TextWiser(Embedding.TfIdf(),
+                                                                          Transformation.NMF()),
                                            optimization_method="exact",
                                            cost_metric="diverse")
         selector = Selective(method)
@@ -59,7 +63,8 @@ class TestText(BaseTest):
 
         with self.assertRaises(ValueError):
             method = SelectionMethod.TextBased(num_features=3,
-                                               featurization_method=None,
+                                               featurization_method=TextWiser(Embedding.TfIdf(),
+                                                                              Transformation.NMF()),
                                                optimization_method="invalid",
                                                cost_metric="diverse")
 
@@ -67,6 +72,16 @@ class TestText(BaseTest):
 
     def test_text_invalid_cost_metric(self):
 
+        with self.assertRaises(ValueError):
+            method = SelectionMethod.TextBased(num_features=3,
+                                               featurization_method=TextWiser(Embedding.TfIdf(),
+                                                                              Transformation.NMF()),
+                                               optimization_method="exact",
+                                               cost_metric="invalid")
+
+            selector = Selective(method)
+
+    def test_text_invalid_featurization(self):
         with self.assertRaises(ValueError):
             method = SelectionMethod.TextBased(num_features=3,
                                                featurization_method=None,

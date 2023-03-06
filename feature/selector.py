@@ -25,7 +25,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.model_selection import KFold
-# from textwiser import TextWiser, Embedding, Transformation
+from textwiser import TextWiser, Embedding, Transformation
 from xgboost import XGBClassifier, XGBRegressor
 
 from feature.base import _BaseDispatcher, _BaseSupervisedSelector, _BaseUnsupervisedSelector
@@ -328,8 +328,7 @@ class SelectionMethod(NamedTuple):
                        the given num_features.
         """
         num_features: Num = 0.0
-        # featurization_method: TextWiser = TextWiser(Embedding.TfIdf(min_df=10), Transformation.NMF(n_components=30))
-        featurization_method: None = None
+        featurization_method: TextWiser = TextWiser(Embedding.TfIdf(min_df=10), Transformation.NMF(n_components=30))
         optimization_method: str = "exact"
         cost_metric: str = "diverse"
 
@@ -339,8 +338,8 @@ class SelectionMethod(NamedTuple):
             if isinstance(self.num_features, float):
                 check_true(self.num_features <= 1, ValueError("Num features ratio must be between [0..1]."))
 
-            # check_true(isinstance(self.featurization_method, TextWiser),
-            #            ValueError("Unknown featurization method" + str(self.featurization_method)))
+            check_true(isinstance(self.featurization_method, TextWiser),
+                       ValueError("Unknown featurization method" + str(self.featurization_method)))
 
             check_true(self.optimization_method in ["exact", "greedy", "kmeans", "random"],
                        ValueError("Optimization method can only be exact, greedy, kmeans, random."))
