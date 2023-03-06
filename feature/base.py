@@ -8,7 +8,7 @@ This module defines the abstract base class for feature selection algorithms.
 """
 
 import abc
-from typing import NoReturn, Tuple
+from typing import NoReturn, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -66,12 +66,12 @@ class _BaseSupervisedSelector(_BaseSelector, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def fit(self, data: pd.DataFrame, labels: pd.Series) -> NoReturn:
+    def fit(self, data: pd.DataFrame, labels: Union[pd.Series, pd.DataFrame]) -> NoReturn:
         """Abstract method
         Fits the selector to the given data.
         """
 
-    def fit_transform(self, data: pd.DataFrame, labels: pd.Series) -> pd.DataFrame:
+    def fit_transform(self, data: pd.DataFrame, labels: Union[pd.Series, pd.DataFrame]) -> pd.DataFrame:
         """Fits the selector to the given and returns the transformed data.
         """
         self.fit(data, labels)

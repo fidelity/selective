@@ -25,12 +25,14 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.model_selection import KFold
+# from textwiser import TextWiser, Embedding, Transformation
 from xgboost import XGBClassifier, XGBRegressor
 
 from feature.base import _BaseDispatcher, _BaseSupervisedSelector, _BaseUnsupervisedSelector
 from feature.correlation import _Correlation
 from feature.linear import _Linear
 from feature.statistical import _Statistical
+from feature.text_based import _TextBased
 from feature.tree_based import _TreeBased
 from feature.utils import Num, check_true, Constants, normalize_columns
 from feature.variance import _Variance
@@ -62,10 +64,10 @@ class SelectionMethod(NamedTuple):
 
         Pearson is parametric while Kendall Tau and Spearman are non-parametric ranking methods.
 
-        The strength of the relationship between X and Y is
+        The strength of the relationship between X and y is
         sometimes expressed by squaring the correlation coefficient and multiplying by 100.
         The resulting statistic is known as variance explained (or R2).
-        Example: a correlation of 0.5 means 0.5^2x100 = 25% of the variance in Y is "explained" or predicted X.
+        Example: a correlation of 0.5 means 0.5^2x100 = 25% of the variance in y is "explained" or predicted by X.
 
         Randomness:
         Behavior is deterministic, does not depend on seed.
@@ -93,7 +95,7 @@ class SelectionMethod(NamedTuple):
 
     class Linear(NamedTuple):
         """
-        Linear Regression for (X, Y)
+        Linear Regression for (X, y)
         Suited for data that is not noisy or
         there is a lot of data compared to the number of features
         and the features are relatively independent.
@@ -111,7 +113,7 @@ class SelectionMethod(NamedTuple):
             - Ridge regression is good for data interpretation due to its stability.
                 Useful features tend to have non-zero coefficients.
 
-        Loss function becomes minimize E(X,Y) + α∥w∥, where
+        Loss function becomes minimize E(X,y) + α∥w∥, where
             - w is the vector of model coefficients,
             - ∥⋅∥ is typically L1 or L2 norm, and
             - α is a tunable free parameter, specifying the amount of regularization
@@ -234,7 +236,7 @@ class SelectionMethod(NamedTuple):
 
     class TreeBased(NamedTuple):
         """
-        Tree-based methods for (X, Y) which uses RandomForestRegressor and RandomForestClassifier
+        Tree-based methods for (X, y) which uses RandomForestRegressor and RandomForestClassifier
 
         Randomness:
         Behavior is non-deterministic, depends on seed
@@ -270,6 +272,82 @@ class SelectionMethod(NamedTuple):
                                                        CatBoostClassifier, CatBoostRegressor)),
                            ValueError("Unknown tree-based estimator" + str(self.estimator)))
 
+    class TextBased(NamedTuple):
+        """
+        # TODO  review the content to double check everything is %100 correct once ALL the implementation is done
+        Text-based method for selecting features/columns from (X_textual, Y).
+        Unlike other selection method, this method operates on textual data, X_textual.
+        In this context, each column/feature in X_textual can be referred to an item with textual description.
+        Similarly, Y represents the labels that are covered by each item.
+
+        This method uses a multi-objective optimization problem that is based on
+        set covering formulation as published in [1].
+        The idea is to select the minimum number of items from X_text that
+        maximizes the item diversity of the text featurization of items (controlled by the featurization method)
+        while also maximizing the coverage of labels given in Y.
+        If no Y is given, it selects #TODO..
+
+        References:
+        [1] Kadioglu et. al., Optimized Item Selection to Boost Exploration for Recommender Systems, CPAIOR'21
+
+        # TODO
+        The parameters corresponding to the methods in the paper [1]
+        random:
+        kmeans:
+        greedy:
+        unicost:
+        diverse:
+        max_cover:
+
+        Randomness:
+        Behavior for #TODO methods is non-deterministic, depends on seed.
+
+        Attributes
+        ----------
+        num_features : Num, optional
+            If integer, select max_num_features.
+            If float, select the percentile of max_num_features.
+            #TODO is this true? Unlike other methods, this is maximum number of features.
+            The algorithm might choose a less number of features depending on other parameters.
+        featurization_method : TextWiser object to featurize items in X_textual
+        optimization_method : str, optional
+            * exact: This method finds the optimum solution using the python-mip constraint solver.
+            * greedy: This method finds a greedy solution by adding items step by step
+                      using a greedy heuristic that covers the most labels.
+            * kmeans: This method clusters the text featurization space into k clusters
+                      where k is either the solution of the exact unicost selection, or,
+                      the given num_features.
+                      Then, items close the centroids are selected
+            * random: This method finds a random solution by selecting a random set of items.
+        cost_metric : str, optional;
+            * unicost: Each item/feature incurs a cost of one when included in the selection.
+            * diverse: Each item/feature incurs a cost equivalent to the distance to its closest centroid
+                       in latent space obtained from the text featurization of items.
+                       The centroids are found by clustering the text featurization space into k-clusters,
+                       where k is either the solution of the exact unicost selection, or,
+                       the given num_features.
+        """
+        num_features: Num = 0.0
+        # featurization_method: TextWiser = TextWiser(Embedding.TfIdf(min_df=10), Transformation.NMF(n_components=30))
+        featurization_method: None = None
+        optimization_method: str = "exact"
+        cost_metric: str = "diverse"
+
+        def _validate(self):
+            check_true(isinstance(self.num_features, (int, float)), TypeError("Max num features must a number."))
+            check_true(self.num_features > 0, ValueError("Num features must be greater than zero."))
+            if isinstance(self.num_features, float):
+                check_true(self.num_features <= 1, ValueError("Num features ratio must be between [0..1]."))
+
+            # check_true(isinstance(self.featurization_method, TextWiser),
+            #            ValueError("Unknown featurization method" + str(self.featurization_method)))
+
+            check_true(self.optimization_method in ["exact", "greedy", "kmeans", "random"],
+                       ValueError("Optimization method can only be exact, greedy, kmeans, random."))
+
+            check_true(self.cost_metric in ["unicost", "diverse"],
+                       ValueError("Cost metric can only be unicost or diverse."))
+
     class Variance(NamedTuple):
         """
         Unsupervised Feature selector that removes all low-variance features.
@@ -284,7 +362,7 @@ class SelectionMethod(NamedTuple):
 
         Randomness:
         Behavior is deterministic.
-        However when results might differ when threshold = 0 vs. threshold != 0
+        However, when results might differ when threshold = 0 vs. threshold != 0
 
         Attributes
         ----------
@@ -337,6 +415,7 @@ class Selective:
     def __init__(self, selection_method: Union[SelectionMethod.Correlation,
                                                SelectionMethod.Linear,
                                                SelectionMethod.TreeBased,
+                                               SelectionMethod.TextBased,
                                                SelectionMethod.Statistical,
                                                SelectionMethod.Variance],
                  seed: int = Constants.default_seed):
@@ -381,6 +460,9 @@ class Selective:
                                 self.selection_method.regularization, self.selection_method.alpha)
         elif isinstance(selection_method, SelectionMethod.TreeBased):
             self._imp = _TreeBased(self.seed, self.selection_method.num_features, self.selection_method.estimator)
+        elif isinstance(selection_method, SelectionMethod.TextBased):
+            self._imp = _TextBased(self.seed, self.selection_method.num_features, self.selection_method.featurization_method,
+                                   self.selection_method.optimization_method, self.selection_method.cost_metric)
         elif isinstance(selection_method, SelectionMethod.Statistical):
             self._imp = _Statistical(self.seed, self.selection_method.num_features, self.selection_method.method)
         elif isinstance(selection_method, SelectionMethod.Variance):
@@ -388,7 +470,7 @@ class Selective:
         else:
             raise ValueError("Unknown Selection Method " + str(selection_method))
 
-    def fit(self, data: pd.DataFrame, labels: Optional[pd.Series] = None) -> NoReturn:
+    def fit(self, data: pd.DataFrame, labels: Optional[Union[pd.Series, pd.DataFrame]] = None) -> NoReturn:
 
         # Validate
         self._validate_fit(data, labels)
@@ -438,6 +520,7 @@ class Selective:
         # Selection Method type
         check_true(isinstance(selection_method, (SelectionMethod.Correlation,
                                                  SelectionMethod.Linear,
+                                                 SelectionMethod.TextBased,
                                                  SelectionMethod.TreeBased,
                                                  SelectionMethod.Statistical,
                                                  SelectionMethod.Variance)),
@@ -448,6 +531,8 @@ class Selective:
 
     def _validate_fit(self, data, labels):
 
+        check_true(data is not None, ValueError("Data cannot be none"))
+
         # VIF is a Statistical methods, hence BaseSupervised, but does not need labels
         if isinstance(self._imp, _Statistical) and self.selection_method.method == "variance_inflation":
             pass
@@ -455,7 +540,12 @@ class Selective:
             # Supervised implementors, except VIF, require labels
             if isinstance(self._imp, _BaseSupervisedSelector):
                 check_true(labels is not None, ValueError("Labels column cannot be none"))
-                check_true(isinstance(labels, pd.Series), ValueError("Labels should be a pandas series/column."))
+
+                # For text_based labels is a dataframe
+                if isinstance(self._imp, _TextBased):
+                    check_true(isinstance(labels, pd.DataFrame), ValueError("Labels should be a pandas dataframe."))
+                else:
+                    check_true(isinstance(labels, pd.Series), ValueError("Labels should be a pandas series/column."))
 
         if not hasattr(self.selection_method, 'num_features'):
             return
