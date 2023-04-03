@@ -4,31 +4,50 @@
 import pandas as pd
 
 from feature.selector import Selective, SelectionMethod
-from tests.test_base import BaseTest
+from test_base import BaseTest
 from textwiser import TextWiser, Embedding, Transformation
 
 
 class TestText(BaseTest):
 
-    def test_text_based(self):
+    def test_text_based_random(self):
         data = pd.DataFrame({"item1": ["This is content 1"],
-                             "item2": ["This is content 2"]})
-
-        labels = pd.DataFrame({"item1": [0, 1, 1],
-                               "item2": [1, 0, 1]})
+                             "item2": ["This is content 2"],
+                             "item3": ["This is content 3"]})
+        labels = pd.DataFrame({"item1": [0, 1, 1], "item2": [1, 0, 1], "item3": [1, 1, 0]})
 
         print(data)
         print(labels)
 
-        method = SelectionMethod.TextBased(num_features=1,
+        method = SelectionMethod.TextBased(num_features=2,
                                            featurization_method=TextWiser(Embedding.TfIdf(),
                                                                           Transformation.NMF()),
-                                           optimization_method="exact",
+                                           optimization_method="random")
+
+        selector = Selective(method)
+        selector.fit(data, labels)
+        # subset = selector.transform(data)
+
+
+    def test_text_based_greedy_uni(self):
+        data = pd.DataFrame({"item1": ["This is content 1"],
+                             "item2": ["This is content 2"],
+                             "item3": ["This is content 3"]})
+        labels = pd.DataFrame({"item1": [1, 1, 1], "item2": [1, 0, 1], "item3": [1, 0, 0]})
+
+        print(data)
+        print(labels)
+
+        method = SelectionMethod.TextBased(num_features=2,
+                                           featurization_method=TextWiser(Embedding.TfIdf(),
+                                                                          Transformation.NMF()),
+                                           optimization_method="greedy",
                                            cost_metric="unicost")
         selector = Selective(method)
-
         selector.fit(data, labels)
-        subset = selector.transform(data)
+        #subset = selector.transform(data)
+
+
 
     def test_text_invalid_none_data(self):
 

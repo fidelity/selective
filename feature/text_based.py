@@ -2,19 +2,23 @@
 # Copyright FMR LLC <opensource@fidelity.com>
 # SPDX-License-Identifier: GNU GPLv3
 
-from typing import NoReturn, Union, List
+from typing import NoReturn, Union, List, Optional
 
 import random
 import pandas as pd
 import numpy as np
-# from textwiser import TextWiser
-from feature.base import _BaseSupervisedSelector, _BaseDispatcher
+from feature.base import _BaseSupervisedSelector
 from feature.utils import Num
 import matplotlib.pyplot as plt
 
 from mip import Model, xsum, minimize, maximize, BINARY, INTEGER, OptimizationStatus
 from sklearn.cluster import KMeans
 from scipy import sparse
+
+
+from textwiser import TextWiser, Embedding, Transformation
+
+
 
 
 class Data:
@@ -102,6 +106,8 @@ class ContentSelector:
         self.trials = trials
         self.verbose = verbose == 1
 
+
+
         # Initialize class variables
         self.matrix = None
         self.features = None
@@ -111,7 +117,8 @@ class ContentSelector:
     def run_content_selection(self,
                               input_df: pd.DataFrame,
                               categories: List[str], feature_column: str,
-                              method: str = "max_cover") -> List:
+                              method: str = "max_cover",
+                              cost_metric: str = "unicost") -> List:
         """Run content selection algorithm.
 
         Parameters
@@ -136,6 +143,7 @@ class ContentSelector:
         """
 
         # Process data
+        self.cost_metric = cost_metric
         self._process_df(input_df, categories, feature_column)
 
         # Run multi-level set covering optimization
@@ -161,24 +169,29 @@ class ContentSelector:
     def _process_df(self, input_df: pd.DataFrame, categories: List[str], feature_column: str) -> NoReturn:
 
         # Get label for each row based on input categories
-        labels_list = []
-        for index, row in input_df.iterrows():
-            labels = []
-            for c in categories:
-                l = c + " " + str(row[c]).replace("\n", " ")
-                labels.append(l)
-            labels_list.append(" | ".join(labels))
-        input_df["labels"] = labels_list
+        # labels_list = []
+        # for index, row in input_df.iterrows():
+        #     labels = []
+        #     for c in categories:
+        #         l = c + " " + str(row[c]).replace("\n", " ")
+        #         labels.append(l)
+        #     labels_list.append(" | ".join(labels))
+        # input_df["labels"] = labels_list
 
         # Matrix
-        self.matrix = (input_df.labels.str.split('|', expand=True)
-                       .stack()
-                       .str.get_dummies()
-                       .sum(level=0)).T.values
+        # self.matrix = (input_df.labels.str.split('|', expand=True)
+        #                .stack()
+        #                .str.get_dummies()
+        #                .sum(level=0)).T.values
+        # TODO: Xin: The process of creating matix from labels, it creates a nested list of contents.
+        # TODO: Dimensions do not match with correct number of rows and columns. I used
+        self.matrix = categories.to_numpy()
         self._num_rows, self._num_cols = self.matrix.shape
 
         # Content features
-        self.features = np.array([eval(l) if isinstance(l, str) else l for l in input_df[feature_column].tolist()])
+        # self.features = np.array([eval(l) if isinstance(l, str) else l for l in input_df[feature_column].tolist()])
+        self.features = input_df[feature_column].to_numpy()[0]
+        # TODO: self.features = ...... transform features for diverse cost metric
 
         assert (self.matrix.ndim == 2), "Process Data Error: matrix should 2D"
         assert (len(self.features) == self._num_cols), \
@@ -194,7 +207,6 @@ class ContentSelector:
         unicost = np.ones(num_content)
         data = Data(cost=unicost, matrix=self.matrix)
         unicost_selected = self._solve_set_cover(data)
-
         if self.verbose:
             print("\nSECOND LEVEL: Maximize diversity")
         # Find clusters in the embedding space
@@ -230,47 +242,68 @@ class ContentSelector:
         # Return solution
         return selected
 
-    def _select_random(self) -> List:
+    def _select_random(self) -> List[int]:
+        # it returns selected column indices
 
         # Set the seed
         random.seed(self.seed)
 
-        selected = None
-        sum_covered = 0
+        best_selected = []
+        best_covered = 0
         for t in range(self.trials):
             # Select a sample of selection_size without repetition
-            selected = random.sample([i for i in range(self._num_cols)], self.selection_size)
+            selected = []
+            while len(selected) < self.selection_size and self._num_cols is not None:
+                i = random.randint(0, self._num_cols - 1)
+                while i in selected:
+                    i = random.randint(0, self._num_cols -1)
+                selected.append(i)
+
+            # selected = random.sample([i for i in range(self._num_cols)], self.selection_size)
 
             # Count covered categories
             num_row_covered = self._get_num_row_covered(selected)
-            sum_covered += num_row_covered
+            if num_row_covered > best_covered:
+                best_covered = num_row_covered
+                best_selected = selected
 
-        # Average out num covered
-        num_row_covered = sum_covered/self.trials
+        # Calculate coverage metrics
+        num_row_covered = self._get_num_row_covered(best_selected)
+        coverage = num_row_covered / self._num_rows
 
         if self.verbose:
             print("\nRANDOM SELECTION:", self.selection_size, "columns to cover rows ", self._num_rows)
             print("=" * 40)
-            print("SIZE:", len(selected),
-                  "reduction: {:.2f}".format((self._num_cols - len(selected)) / self._num_cols))
-            print("SELECTED:", selected)
+            print("SIZE:", len(best_selected),
+                  "reduction: {:.2f}".format((self._num_cols - len(best_selected)) / self._num_cols))
+            print("SELECTED:", best_selected)
             print("NUM (AVG) ROWS COVERED:",
-                  num_row_covered, "coverage: {:.2f}".format(num_row_covered / self._num_rows))
+                  num_row_covered, "coverage: {:.2f}".format(coverage))
             print("STATUS: RANDOM")
             print("=" * 40)
 
-        return selected
+        return best_selected
 
     def _select_greedy(self) -> List:
 
-        # Cost vector
-        unicost = np.ones(self._num_cols)
+        # TODO: need to add text featurization to implement diverse cost metric
+        optcost = np.ones(self._num_cols)
+        if self.cost_metric == "diverse":
+            k = len(optcost)
+            num_content = self._num_cols
+            kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
+            distances = kmeans.fit_transform(self.matrix)
+            diversity_cost = [np.sum(distances[:,0]) for i in range(num_content)]
+
+            # Scale contexts so that sum of costs remain constant
+            diversity_cost = [c * num_content / sum(diversity_cost) for c in diversity_cost]
+            optcost = diversity_cost
 
         # Compressed sparse column (transposed for convenience)
         sparse_col = sparse.csr_matrix(self.matrix.T, copy=True)
 
         # Initial guess of the Lagrangian multiplier with greedy algorithm
-        adjusted_cost = unicost / sparse_col.dot(np.ones(self._num_rows))
+        adjusted_cost = optcost / sparse_col.dot(np.ones(self._num_rows))
         cost_matrix = adjusted_cost * self.matrix + np.amax(adjusted_cost) * (~self.matrix)
         u = adjusted_cost[np.argmin(cost_matrix, axis=1)]
 
@@ -287,9 +320,9 @@ class ContentSelector:
             # Faster than indexing, made possible by sparse_col.dot
             mu = sparse_col.dot(iuncovered.astype(int)).astype(float)
             mu[mu <= epsilon] = epsilon
-
+            # Set Lagrange multiplier zero for covered rows
             u[~iuncovered] = 0
-            gamma = (unicost - sparse_col.dot(u))
+            gamma = (optcost - sparse_col.dot(u))
             select_gamma = (gamma >= 0)
 
             if np.count_nonzero(select_gamma) > 0:
@@ -298,7 +331,7 @@ class ContentSelector:
             if np.count_nonzero(~select_gamma) > 0:
                 score[~select_gamma] = gamma[~select_gamma] * mu[~select_gamma]
 
-            # Add new column
+            # Add new column (column with minimum cost that has not been selected yet
             inewcolumn = (np.nonzero(~selected)[0])[np.argmin(score[~selected])]
             selected[inewcolumn] = True
             size += 1
@@ -343,7 +376,7 @@ class ContentSelector:
 
     def _solve_set_cover(self, data: Data) -> List:
 
-        # Model
+        # Create Model object
         model = Model("Set Cover Model")
 
         # Variables
@@ -356,7 +389,7 @@ class ContentSelector:
         # Objective: minimize
         model.objective = minimize(xsum(data.cost[i] * x[i] for i in data.X))
 
-        # Solve
+        # Solve (optimize using Gurobi)
         model.verbose = 0
         model.optimize()
         assert model.status == OptimizationStatus.OPTIMAL, "Max Cover Error: optimal solution not found."
@@ -456,6 +489,7 @@ class ContentSelector:
         return kmeans_selected
 
     def _get_num_row_covered(self, selected) -> int:
+        assert self.matrix is not None, "matrix is not initialized"
 
         # Create indicator to count number of covered rows
         row_covered = np.sum(self.matrix[:, selected], axis=1)
@@ -538,26 +572,43 @@ def plot_selection(name: str, embedding: Union[List[List], np.ndarray], selected
 
     return ax
 
+
 # TODO not sure if this should use _BaseDispatcher or not. We can decide later
 class _TextBased(_BaseSupervisedSelector):
+    """
+    featurization is done inb 'fit' function and optimization is done in 'transform' function
+    """
 
     def __init__(self, seed: int, num_features: Num,
-                 featurization_method, optimization_method: str, cost_metric: str):
+                 featurization_method: TextWiser, optimization_method: str, cost_metric: Optional[str] = None):
+        # Call constructor of parent class _BaseSupervisedSelector
         super().__init__(seed)
 
         self.num_features = num_features    # this could be int or float
         self.featurization_method = featurization_method
         self.optimization_method = optimization_method
         self.cost_metric = cost_metric
+        # Initialize ContentSelector instance to perform feature selection
+        self.content_selector = ContentSelector(selection_size=num_features, seed=42, trials=100, verbose=True)
 
     def fit(self, data: pd.DataFrame, labels: Union[pd.Series, pd.DataFrame]) -> NoReturn:
+        # print("FIT: ", self.num_features, self.featurization_method, self.optimization_method, self.cost_metric)
 
-        print("FIT: ", self.num_features, self.featurization_method, self.optimization_method, self.cost_metric)
-        # TODO Solve? or setup? appropriate set cover problem with given parameters
+        # Call fit method from parent class _BaseSupervisedSelector
+        super().fit(data, labels)
 
-        # TODO Set importance as xxx may be cost of item?
-        # TODO Is all other methods consider higher score better/more important? If so, 1/cost? or sth else?
-        self.abs_scores = None
+        # Get the text columns dynamically
+        text_columns = [col for col in data.columns if col.startswith("item")]
+
+        # Perform content selection using the specified method
+        selected_indicies = self.content_selector.run_content_selection(data, labels, text_columns,
+                                                                        self.optimization_method, self.cost_metric)
+
+        # Only select the features that were selected during fit
+        selected_features = [col for i, col in enumerate(text_columns) if i in selected_indicies]
+        self.selected_features_ = selected_features
+
+
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
 

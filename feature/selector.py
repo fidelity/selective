@@ -12,7 +12,7 @@ This module defines the public interface of the **Selective Library** for featur
 
 import multiprocessing as mp
 from time import time
-from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional
+from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional, List
 
 import numpy as np
 import pandas as pd
@@ -36,6 +36,7 @@ from feature.text_based import _TextBased
 from feature.tree_based import _TreeBased
 from feature.utils import Num, check_true, Constants, normalize_columns
 from feature.variance import _Variance
+
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -310,27 +311,33 @@ class SelectionMethod(NamedTuple):
             #TODO is this true? Unlike other methods, this is maximum number of features.
             The algorithm might choose a less number of features depending on other parameters.
         featurization_method : TextWiser object to featurize items in X_textual
+                                This method does not have impact when use random and greedy with unicost
         optimization_method : str, optional
             * exact: This method finds the optimum solution using the python-mip constraint solver.
             * greedy: This method finds a greedy solution by adding items step by step
-                      using a greedy heuristic that covers the most labels.
+                      using a greedy heuristic that covers the most labels. It need text featurization of items
+                      to implement diverse cost metric
             * kmeans: This method clusters the text featurization space into k clusters
                       where k is either the solution of the exact unicost selection, or,
                       the given num_features.
                       Then, items close the centroids are selected
             * random: This method finds a random solution by selecting a random set of items.
+                       Random does not need cost metric.
         cost_metric : str, optional;
             * unicost: Each item/feature incurs a cost of one when included in the selection.
+                        For random this parameter does not impact.
             * diverse: Each item/feature incurs a cost equivalent to the distance to its closest centroid
                        in latent space obtained from the text featurization of items.
                        The centroids are found by clustering the text featurization space into k-clusters,
                        where k is either the solution of the exact unicost selection, or,
                        the given num_features.
         """
+        # Defualt values
         num_features: Num = 0.0
         featurization_method: TextWiser = TextWiser(Embedding.TfIdf(min_df=10), Transformation.NMF(n_components=30))
         optimization_method: str = "exact"
-        cost_metric: str = "diverse"
+        cost_metric: Optional[str] = None
+
 
         def _validate(self):
             check_true(isinstance(self.num_features, (int, float)), TypeError("Max num features must a number."))
@@ -341,10 +348,10 @@ class SelectionMethod(NamedTuple):
             check_true(isinstance(self.featurization_method, TextWiser),
                        ValueError("Unknown featurization method" + str(self.featurization_method)))
 
-            check_true(self.optimization_method in ["exact", "greedy", "kmeans", "random"],
+            check_true(self.optimization_method in ["max_cover", "exact", "greedy", "kmeans", "random"],
                        ValueError("Optimization method can only be exact, greedy, kmeans, random."))
 
-            check_true(self.cost_metric in ["unicost", "diverse"],
+            check_true(self.cost_metric in ["unicost", "diverse", None],
                        ValueError("Cost metric can only be unicost or diverse."))
 
     class Variance(NamedTuple):
@@ -460,7 +467,8 @@ class Selective:
         elif isinstance(selection_method, SelectionMethod.TreeBased):
             self._imp = _TreeBased(self.seed, self.selection_method.num_features, self.selection_method.estimator)
         elif isinstance(selection_method, SelectionMethod.TextBased):
-            self._imp = _TextBased(self.seed, self.selection_method.num_features, self.selection_method.featurization_method,
+            self._imp = _TextBased(self.seed, self.selection_method.num_features,
+                                   self.selection_method.featurization_method,
                                    self.selection_method.optimization_method, self.selection_method.cost_metric)
         elif isinstance(selection_method, SelectionMethod.Statistical):
             self._imp = _Statistical(self.seed, self.selection_method.num_features, self.selection_method.method)
