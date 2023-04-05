@@ -319,8 +319,8 @@ class SelectionMethod(NamedTuple):
                       to implement diverse cost metric
             * kmeans: This method clusters the text featurization space into k clusters
                       where k is either the solution of the exact unicost selection, or,
-                      the given num_features.
-                      Then, items close the centroids are selected
+                      the given num_features. Then, items close the centroids are selected
+                      kmeans does not need cost metrics.
             * random: This method finds a random solution by selecting a random set of items.
                        Random does not need cost metric.
         cost_metric : str, optional;

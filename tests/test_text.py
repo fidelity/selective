@@ -10,11 +10,14 @@ from textwiser import TextWiser, Embedding, Transformation
 
 class TestText(BaseTest):
 
-    def test_text_based_random(self):
-        data = pd.DataFrame({"item1": ["This is content 1"],
-                             "item2": ["This is content 2"],
-                             "item3": ["This is content 3"]})
-        labels = pd.DataFrame({"item1": [0, 1, 1], "item2": [1, 0, 1], "item3": [1, 1, 0]})
+    def test_text_based_random_kmeans(self):
+        data = pd.DataFrame({"item1": ["The library is built with modern architecture and GPUs in mind"],
+                             "item2": ["The implementation supports PyTorch backend natively"],
+                             "item3": ["The library is interoperable with the standard scikit-learn pipelines"],
+                             "item4": ["We introduce contextfree grammars to represent the unification offeaturization"],
+                             "item5": ["Equipped with the formalism of a welldefined grammar"]})
+        labels = pd.DataFrame({"item1": [1, 0, 0, 1, 0], "item2": [0, 0, 1, 0, 0], "item3": [0, 0, 1, 1, 0],
+                               "item4": [1, 0, 0, 0, 0], "item5": [0, 0, 0, 0, 1]})
 
         print(data)
         print(labels)
@@ -22,7 +25,7 @@ class TestText(BaseTest):
         method = SelectionMethod.TextBased(num_features=2,
                                            featurization_method=TextWiser(Embedding.TfIdf(),
                                                                           Transformation.NMF()),
-                                           optimization_method="random")
+                                           optimization_method="kmeans")
 
         selector = Selective(method)
         selector.fit(data, labels)
@@ -30,12 +33,12 @@ class TestText(BaseTest):
 
 
     def test_text_based_greedy_uni(self):
-        data = pd.DataFrame({"item1": ["This is content 1"],
-                             "item2": ["This is content 2"],
-                             "item3": ["This is content 3"],
-                             "item4": ["This is content 4"],
-                             "item5": ["This is content 5"],})
-        labels = pd.DataFrame({"item1": [1, 0, 0, 1, 0], "item2": [0, 1, 1, 0, 0], "item3": [0, 0, 1, 1, 0],
+        data = pd.DataFrame({"item1": ["The library is built with modern architecture and GPUs in mind"],
+                             "item2": ["The implementation supports PyTorch backend natively"],
+                             "item3": ["The library is interoperable with the standard scikit-learn pipelines"],
+                             "item4": ["We introduce contextfree grammars to represent the unification offeaturization"],
+                             "item5": ["Equipped with the formalism of a welldefined grammar"]})
+        labels = pd.DataFrame({"item1": [1, 0, 0, 1, 0], "item2": [0, 0, 1, 0, 0], "item3": [0, 0, 1, 1, 0],
                                "item4": [1, 0, 0, 0, 0], "item5": [0, 0, 0, 0, 1]})
 
         print(data)

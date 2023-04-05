@@ -129,6 +129,8 @@ class ContentSelector:
             List of columns in data that contains categories/labels to be covered.
         feature_column: st
             Column with numeric featurization of content text.
+        featurization_method: TextWiser
+
         method: str, default="max_cover"
             Method used to perform content selection. Supported options are:
             - "max_cover" maximizes content diversity and minimizes the number of content to cover all content labels.
@@ -136,6 +138,8 @@ class ContentSelector:
               to the centroid of each of the clusters. This method does not consider the content categories/labels.
             - "greedy" performs greedy heuristic selecting items with max unit coverage until all items are covered
             - "random" performs a random selection.
+
+        cost_metric: str, default = "unicost"
 
         Returns
         -------
@@ -168,7 +172,11 @@ class ContentSelector:
         return selected
 
     def _process_df(self, input_df: pd.DataFrame, categories: List[str], feature_column: str) -> NoReturn:
-
+        # TODO: move code for getting labels from categories to utils
+        """
+        without categories the dimensions do not match with correct number of rows and columns.
+        Therefore, directly input the labels data to matrix
+        """
         # Get label for each row based on input categories
         # labels_list = []
         # for index, row in input_df.iterrows():
@@ -184,13 +192,11 @@ class ContentSelector:
         #                .stack()
         #                .str.get_dummies()
         #                .sum(level=0)).T.values
-        # TODO: Xin: The process of creating matix from labels, it creates a nested list of contents.
-        # TODO: Dimensions do not match with correct number of rows and columns. I used
-        # categories are label
+
         self.matrix = categories.to_numpy()
         self._num_rows, self._num_cols = self.matrix.shape
 
-        # Content feature (featurization with textwiser)
+        # Content feature (with textwiser)
         feature_column = self.featurization_method.fit_transform(input_df)
         # self.features = np.array([eval(l) if isinstance(l, str) else l for l in input_df[feature_column].tolist()])
         self.features = np.array([eval(l) if isinstance(l, str) else l for l in feature_column.tolist()])
@@ -289,27 +295,28 @@ class ContentSelector:
     def _select_greedy(self) -> List:
 
         if self.cost_metric == "diverse":
-            optcost = np.ones(self._num_cols)
-            k = len(optcost)
+            unicost = np.zeros(self._num_cols)
+            k = len(unicost)
             num_content = self._num_cols
             kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
             distances = kmeans.fit_transform(self.features)
-            # distances = kmeans.fit_transform(self.matrix)
-            diversity_cost = [np.sum(distances[:,i]) for i in range(num_content)]
-            # diversity_cost = [np.min(distances[:,i]) for i in range(num_content)]
+            diversity_cost = [np.min(distances[:,i]) for i in range(num_content)]
+
+            # add small dummy for scaling factor
+            diversity_cost = [c + 1e-6 for c in diversity_cost]
 
             # Scale contexts so that sum of costs remain constant
             diversity_cost = [c * num_content / sum(diversity_cost) for c in diversity_cost]
-            optcost = diversity_cost
+            unicost = diversity_cost
         else:
-            optcost = np.ones(self._num_cols)
+            unicost = np.ones(self._num_cols)
 
 
         # Compressed sparse column (transposed for convenience)
         sparse_col = sparse.csr_matrix(self.matrix.T, copy=True)
 
         # Initial guess of the Lagrangian multiplier with greedy algorithm
-        adjusted_cost = optcost / sparse_col.dot(np.ones(self._num_rows))
+        adjusted_cost = unicost / sparse_col.dot(np.ones(self._num_rows))
         cost_matrix = adjusted_cost * self.matrix + np.amax(adjusted_cost) * (~self.matrix)
         u = adjusted_cost[np.argmin(cost_matrix, axis=1)]
 
@@ -328,7 +335,7 @@ class ContentSelector:
             mu[mu <= epsilon] = epsilon
             # Set Lagrange multiplier zero for covered rows
             u[~iuncovered] = 0
-            gamma = (optcost - sparse_col.dot(u))
+            gamma = (unicost - sparse_col.dot(u))
             select_gamma = (gamma >= 0)
 
             if np.count_nonzero(select_gamma) > 0:
@@ -582,7 +589,8 @@ def plot_selection(name: str, embedding: Union[List[List], np.ndarray], selected
 # TODO not sure if this should use _BaseDispatcher or not. We can decide later
 class _TextBased(_BaseSupervisedSelector):
     """
-    featurization is done inb 'fit' function and optimization is done in 'transform' function
+    featrization and optimization are done in 'fit' function.
+    the 'transform' function is used to show the selected contents
     """
 
     def __init__(self, seed: int, num_features: Num,
@@ -594,7 +602,7 @@ class _TextBased(_BaseSupervisedSelector):
         self.featurization_method = featurization_method
         self.optimization_method = optimization_method
         self.cost_metric = cost_metric
-        self.content_selector = ContentSelector(selection_size=num_features, seed=42, trials=100, verbose=True)
+        self.content_selector = ContentSelector(selection_size=num_features, seed=123456, trials=100, verbose=True)
 
     def fit(self, data: pd.DataFrame, labels: Union[pd.Series, pd.DataFrame]) -> NoReturn:
         # print("FIT: ", self.num_features, self.featurization_method, self.optimization_method, self.cost_metric)
