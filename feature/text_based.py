@@ -116,7 +116,7 @@ class ContentSelector:
 
     def run_content_selection(self,
                               input_df: pd.DataFrame,
-                              categories: List[str], feature_column: str,
+                              categories: List[str], feature_column: str, featurization_method: TextWiser,
                               method: str = "max_cover",
                               cost_metric: str = "unicost") -> List:
         """Run content selection algorithm.
@@ -144,6 +144,7 @@ class ContentSelector:
 
         # Process data
         self.cost_metric = cost_metric
+        self.featurization_method = featurization_method
         self._process_df(input_df, categories, feature_column)
 
         # Run multi-level set covering optimization
@@ -185,13 +186,14 @@ class ContentSelector:
         #                .sum(level=0)).T.values
         # TODO: Xin: The process of creating matix from labels, it creates a nested list of contents.
         # TODO: Dimensions do not match with correct number of rows and columns. I used
+        # categories are label
         self.matrix = categories.to_numpy()
         self._num_rows, self._num_cols = self.matrix.shape
 
-        # Content features
+        # Content feature (featurization with textwiser)
+        feature_column = self.featurization_method.fit_transform(input_df)
         # self.features = np.array([eval(l) if isinstance(l, str) else l for l in input_df[feature_column].tolist()])
-        self.features = input_df[feature_column].to_numpy()[0]
-        # TODO: self.features = ...... transform features for diverse cost metric
+        self.features = np.array([eval(l) if isinstance(l, str) else l for l in feature_column.tolist()])
 
         assert (self.matrix.ndim == 2), "Process Data Error: matrix should 2D"
         assert (len(self.features) == self._num_cols), \
@@ -292,7 +294,8 @@ class ContentSelector:
             k = len(optcost)
             num_content = self._num_cols
             kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
-            distances = kmeans.fit_transform(self.matrix)
+            distances = kmeans.fit_transform(self.features)
+            # distances = kmeans.fit_transform(self.matrix)
             diversity_cost = [np.sum(distances[:,0]) for i in range(num_content)]
 
             # Scale contexts so that sum of costs remain constant
@@ -602,6 +605,7 @@ class _TextBased(_BaseSupervisedSelector):
 
         # Perform content selection using the specified method
         selected_indicies = self.content_selector.run_content_selection(data, labels, text_columns,
+                                                                        self.featurization_method,
                                                                         self.optimization_method, self.cost_metric)
 
         # Only select the features that were selected during fit

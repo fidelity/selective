@@ -32,8 +32,9 @@ class TestText(BaseTest):
     def test_text_based_greedy_uni(self):
         data = pd.DataFrame({"item1": ["This is content 1"],
                              "item2": ["This is content 2"],
-                             "item3": ["This is content 3"]})
-        labels = pd.DataFrame({"item1": [1, 1, 1], "item2": [1, 0, 1], "item3": [1, 0, 0]})
+                             "item3": ["This is content 3"],
+                             "item4": ["This is content 4"]})
+        labels = pd.DataFrame({"item1": [1, 0, 0, 1], "item2": [1, 1, 1, 0], "item3": [0, 0, 1, 1], "item4": [1, 0, 0, 0]})
 
         print(data)
         print(labels)
@@ -42,7 +43,7 @@ class TestText(BaseTest):
                                            featurization_method=TextWiser(Embedding.TfIdf(),
                                                                           Transformation.NMF()),
                                            optimization_method="greedy",
-                                           cost_metric="unicost")
+                                           cost_metric="diverse")
         selector = Selective(method)
         selector.fit(data, labels)
         #subset = selector.transform(data)
