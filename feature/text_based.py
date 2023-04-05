@@ -288,19 +288,22 @@ class ContentSelector:
 
     def _select_greedy(self) -> List:
 
-        # TODO: need to add text featurization to implement diverse cost metric
-        optcost = np.ones(self._num_cols)
         if self.cost_metric == "diverse":
+            optcost = np.ones(self._num_cols)
             k = len(optcost)
             num_content = self._num_cols
             kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
             distances = kmeans.fit_transform(self.features)
             # distances = kmeans.fit_transform(self.matrix)
-            diversity_cost = [np.sum(distances[:,0]) for i in range(num_content)]
+            diversity_cost = [np.sum(distances[:,i]) for i in range(num_content)]
+            # diversity_cost = [np.min(distances[:,i]) for i in range(num_content)]
 
             # Scale contexts so that sum of costs remain constant
             diversity_cost = [c * num_content / sum(diversity_cost) for c in diversity_cost]
             optcost = diversity_cost
+        else:
+            optcost = np.ones(self._num_cols)
+
 
         # Compressed sparse column (transposed for convenience)
         sparse_col = sparse.csr_matrix(self.matrix.T, copy=True)
@@ -591,7 +594,6 @@ class _TextBased(_BaseSupervisedSelector):
         self.featurization_method = featurization_method
         self.optimization_method = optimization_method
         self.cost_metric = cost_metric
-        # Initialize ContentSelector instance to perform feature selection
         self.content_selector = ContentSelector(selection_size=num_features, seed=42, trials=100, verbose=True)
 
     def fit(self, data: pd.DataFrame, labels: Union[pd.Series, pd.DataFrame]) -> NoReturn:

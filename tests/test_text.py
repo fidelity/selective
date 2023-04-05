@@ -33,8 +33,10 @@ class TestText(BaseTest):
         data = pd.DataFrame({"item1": ["This is content 1"],
                              "item2": ["This is content 2"],
                              "item3": ["This is content 3"],
-                             "item4": ["This is content 4"]})
-        labels = pd.DataFrame({"item1": [1, 0, 0, 1], "item2": [1, 1, 1, 0], "item3": [0, 0, 1, 1], "item4": [1, 0, 0, 0]})
+                             "item4": ["This is content 4"],
+                             "item5": ["This is content 5"],})
+        labels = pd.DataFrame({"item1": [1, 0, 0, 1, 0], "item2": [0, 1, 1, 0, 0], "item3": [0, 0, 1, 1, 0],
+                               "item4": [1, 0, 0, 0, 0], "item5": [0, 0, 0, 0, 1]})
 
         print(data)
         print(labels)
