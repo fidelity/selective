@@ -17,6 +17,7 @@ from scipy import sparse
 
 
 from textwiser import TextWiser, Embedding, Transformation
+# from gurobipy import *
 
 
 
@@ -205,7 +206,8 @@ class ContentSelector:
         assert (len(self.features) == self._num_cols), \
             f"Process Data Error: features size ({len(self.features)}) " \
             f"should match the number of columns ({self._num_cols})"
-        assert (self.selection_size <= self._num_cols), "Process Data Error: selection_size cannot exceed num columns"
+        if self.selection_size is not None:
+            assert (self.selection_size <= self._num_cols), "Process Data Error: selection_size cannot exceed num columns"
 
     def _select_multi_level_optimization(self) -> List:
 
@@ -370,8 +372,17 @@ class ContentSelector:
         return selected
 
     def _select_kmeans(self) -> List:
+        if self.selection_size is None:
+            num_content = self._num_cols
+            unicost = np.ones(num_content)
+            data = Data(cost=unicost, matrix=self.matrix)
+            unicost_selected = self._solve_set_cover(data)
+            # Find clusters in the embedding space
+            k = len(unicost_selected)
+        else:
+            k = self.selection_size
 
-        kmeans = KMeans(n_clusters=self.selection_size, random_state=self.seed, n_init=self.trials)
+        kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
         kmeans.fit(self.features)
         selected = self._get_closest_to_centroids(kmeans)
         num_row_covered = self._get_num_row_covered(selected)
@@ -515,8 +526,9 @@ class ContentSelector:
 
     @staticmethod
     def _validate_args(selection_size):
-        if selection_size <= 0:
-            raise ValueError("Selection size must be greater than zero.")
+        if selection_size is not None:
+            if selection_size <= 0:
+                raise ValueError("Selection size must be greater than zero.")
 
 
 def plot_selection(name: str, embedding: Union[List[List], np.ndarray], selected: List,
@@ -605,7 +617,6 @@ class _TextBased(_BaseSupervisedSelector):
         self.content_selector = ContentSelector(selection_size=num_features, seed=123456, trials=100, verbose=True)
 
     def fit(self, data: pd.DataFrame, labels: Union[pd.Series, pd.DataFrame]) -> NoReturn:
-        # print("FIT: ", self.num_features, self.featurization_method, self.optimization_method, self.cost_metric)
 
         # Call fit method from parent class _BaseSupervisedSelector
         super().fit(data, labels)
@@ -626,8 +637,7 @@ class _TextBased(_BaseSupervisedSelector):
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
 
-        print("TRANSFORM: ", self.num_features, self.featurization_method, self.optimization_method, self.cost_metric)
-        # TODO Solve? or setup? appropriate set cover problem with given parameters
+        # print the selected features
+        feature_selected = data[self.selected_features_]
 
-        # TODO return the features accordingly
-        return -1
+        return feature_selected

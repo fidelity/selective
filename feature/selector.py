@@ -333,17 +333,18 @@ class SelectionMethod(NamedTuple):
                        the given num_features.
         """
         # Defualt values
-        num_features: Num = 0.0
+        num_features: Union[int, None]
         featurization_method: TextWiser = TextWiser(Embedding.TfIdf(min_df=10), Transformation.NMF(n_components=30))
         optimization_method: str = "exact"
         cost_metric: Optional[str] = None
 
 
         def _validate(self):
-            check_true(isinstance(self.num_features, (int, float)), TypeError("Max num features must a number."))
-            check_true(self.num_features > 0, ValueError("Num features must be greater than zero."))
-            if isinstance(self.num_features, float):
-                check_true(self.num_features <= 1, ValueError("Num features ratio must be between [0..1]."))
+            if self.num_features is not None:
+                check_true(isinstance(self.num_features, (int, float)), TypeError("Max num features must a number."))
+                check_true(self.num_features > 0, ValueError("Num features must be greater than zero."))
+                if isinstance(self.num_features, float):
+                    check_true(self.num_features <= 1, ValueError("Num features ratio must be between [0..1]."))
 
             check_true(isinstance(self.featurization_method, TextWiser),
                        ValueError("Unknown featurization method" + str(self.featurization_method)))
