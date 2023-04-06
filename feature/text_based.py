@@ -164,6 +164,9 @@ class ContentSelector:
         # Run random selection algorithm
         elif method == "random":
             selected = self._select_random()
+        # Run exact selection algorithm
+        elif method == "exact":
+            selected = self._select_exact()
         else:
             raise NotImplementedError(f"{method} has not been implemented.")
 
@@ -299,20 +302,19 @@ class ContentSelector:
         if self.cost_metric == "diverse":
             unicost = np.zeros(self._num_cols)
             k = len(unicost)
-            num_content = self._num_cols
+
             kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
             distances = kmeans.fit_transform(self.features)
-            diversity_cost = [np.min(distances[:,i]) for i in range(num_content)]
+            diversity_cost = [np.min(distances[:,i]) for i in range(self._num_cols)]
 
             # add small dummy for scaling factor
-            diversity_cost = [c + 1e-6 for c in diversity_cost]
+            diversity_cost = [c + 1e-4 for c in diversity_cost]
 
             # Scale contexts so that sum of costs remain constant
-            diversity_cost = [c * num_content / sum(diversity_cost) for c in diversity_cost]
+            diversity_cost = [c * self._num_cols / sum(diversity_cost) for c in diversity_cost]
             unicost = diversity_cost
         else:
             unicost = np.ones(self._num_cols)
-
 
         # Compressed sparse column (transposed for convenience)
         sparse_col = sparse.csr_matrix(self.matrix.T, copy=True)
@@ -373,8 +375,7 @@ class ContentSelector:
 
     def _select_kmeans(self) -> List:
         if self.selection_size is None:
-            num_content = self._num_cols
-            unicost = np.ones(num_content)
+            unicost = np.ones(self._num_cols)
             data = Data(cost=unicost, matrix=self.matrix)
             unicost_selected = self._solve_set_cover(data)
             # Find clusters in the embedding space
@@ -395,6 +396,29 @@ class ContentSelector:
             print("NUM ROWS COVERED:", num_row_covered, "coverage: {:.2f}".format(num_row_covered / self._num_rows))
             print("STATUS: KMEANS")
             print("=" * 40)
+
+        return selected
+
+    def _select_exact(self) -> List:
+
+        if self.cost_metric == "diverse":
+            unicost = np.zeros(self._num_cols)
+            k = len(unicost)
+            kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
+            distances = kmeans.fit_transform(self.features)
+            diversity_cost = [np.min(distances[:,i]) for i in range(self._num_cols)]
+
+            # add small dummy for scaling factor
+            diversity_cost = [c + 1e-4 for c in diversity_cost]
+
+            # Scale contexts so that sum of costs remain constant
+            diversity_cost = [c * self._num_cols / sum(diversity_cost) for c in diversity_cost]
+            unicost = diversity_cost
+        else:
+            unicost = np.ones(self._num_cols)
+
+        data = Data(cost=unicost, matrix=self.matrix)
+        selected = self._solve_set_cover(data)
 
         return selected
 
