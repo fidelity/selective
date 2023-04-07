@@ -13,13 +13,13 @@ from textwiser import TextWiser, Embedding, PoolOptions, Transformation, WordOpt
 class TestText(BaseTest):
 
     def test_text_based_random_or_kmeans(self):
-        data = pd.DataFrame({"item1": ["The library is built with modern architecture and GPUs in mind"],
-                             "item2": ["The implementation supports PyTorch backend natively"],
-                             "item3": ["The library is interoperable with the standard scikit-learn pipelines"],
-                             "item4": ["We introduce contextfree grammars to represent the unification featurization"],
-                             "item5": ["number of words with a valid vector in the sentence/review"]})
-        labels = pd.DataFrame({"item1": [1, 0, 0, 1, 0], "item2": [0, 1, 0, 0, 0], "item3": [0, 0, 1, 1, 0],
-                               "item4": [1, 0, 0, 0, 0], "item5": [0, 0, 0, 0, 1]})
+        data = pd.DataFrame({"item1": ["this is a sentences"],
+                             "item2": ["second one in list of sentences"],
+                             "item3": ["a word for complexity"],
+                             "item4": ["sentence with a lot of repeated words"],
+                             "item5": ["number of words with a valid vector"]})
+        labels = pd.DataFrame({"item1": [1, 0, 0, 0, 0], "item2": [0, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 0],
+                               "item4": [1, 0, 1, 0, 0], "item5": [0, 1, 0, 0, 1]})
 
         print(data)
         print(labels)
@@ -27,7 +27,7 @@ class TestText(BaseTest):
         method = SelectionMethod.TextBased(num_features=None,
                                            featurization_method=TextWiser(Embedding.TfIdf(),
                                                                           Transformation.NMF()),
-                                           optimization_method="kmeans")
+                                           optimization_method="max_cover")
 
 
         selector = Selective(method)
@@ -39,26 +39,28 @@ class TestText(BaseTest):
     # need to add a proper test to see distinction between diverse and unicost
     # diverse cost metric takes dummy for below test
     def test_text_based_greedy_or_exact(self):
-        data = pd.DataFrame({"item1": ["The library is built with modern architecture and GPUs in mind"],
-                             "item2": ["The implementation supports PyTorch backend natively"],
-                             "item3": ["The library is interoperable with the standard scikit-learn pipelines"],
-                             "item4": ["We introduce contextfree grammars to represent the unification featurization"],
-                             "item5": ["Equipped with the formalism of a welldefined grammar"],
-                             "item6": ["number of words with a valid vector in the sentence/review"]})
-        labels = pd.DataFrame({"item1": [1, 0, 0, 1, 0, 0], "item2": [0, 0, 0, 0, 1, 0], "item3": [0, 0, 1, 1, 0, 0],
-                               "item4": [0, 1, 0, 0, 0, 0], "item5": [0, 0, 0, 0, 1, 1], "item6": [0, 1, 0, 0, 0, 1]})
+        data = pd.DataFrame({"item1": ["this is a sentences"],
+                             "item2": ["second one in list of sentences"],
+                             "item3": ["a word for complexity"],
+                             "item4": ["sentence with a lot of repeated words"],
+                             "item5": ["number of words with a valid vector"]})
+        labels = pd.DataFrame({"item1": [1, 0, 0, 0, 0], "item2": [0, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 0],
+                               "item4": [1, 0, 1, 0, 0], "item5": [0, 1, 0, 0, 1]})
         print(data)
         print(labels)
 
         method = SelectionMethod.TextBased(num_features=None,
-                                           featurization_method=TextWiser(Embedding.TfIdf(),
-                                                                          Transformation.NMF()),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=1),
+                                                                          [Transformation.NMF(n_components=30),
+                                                                           Transformation.SVD(n_components=10)]),
                                            optimization_method="exact",
                                            cost_metric="diverse")
+
         selector = Selective(method)
         selector.fit(data, labels)
         subset = selector.transform(data)
         print(subset)
+
 
 
 

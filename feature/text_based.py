@@ -150,7 +150,7 @@ class ContentSelector:
         # Process data
         self.cost_metric = cost_metric
         self.featurization_method = featurization_method
-        self._process_df(input_df, categories, feature_column)
+        self._process_df(input_df, categories)
 
         # Run multi-level set covering optimization
         if method == "max_cover":
@@ -175,28 +175,11 @@ class ContentSelector:
 
         return selected
 
-    def _process_df(self, input_df: pd.DataFrame, categories: List[str], feature_column: str) -> NoReturn:
-        # TODO: move code for getting labels from categories to utils
+    def _process_df(self, input_df: pd.DataFrame, categories: List[int]) -> NoReturn:
         """
         without categories the dimensions do not match with correct number of rows and columns.
         Therefore, directly input the labels data to matrix
         """
-        # Get label for each row based on input categories
-        # labels_list = []
-        # for index, row in input_df.iterrows():
-        #     labels = []
-        #     for c in categories:
-        #         l = c + " " + str(row[c]).replace("\n", " ")
-        #         labels.append(l)
-        #     labels_list.append(" | ".join(labels))
-        # input_df["labels"] = labels_list
-
-        # Matrix
-        # self.matrix = (input_df.labels.str.split('|', expand=True)
-        #                .stack()
-        #                .str.get_dummies()
-        #                .sum(level=0)).T.values
-
         self.matrix = categories.to_numpy()
         self._num_rows, self._num_cols = self.matrix.shape
 
@@ -406,7 +389,7 @@ class ContentSelector:
             k = len(unicost)
             kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
             distances = kmeans.fit_transform(self.features)
-            diversity_cost = [np.min(distances[:,i]) for i in range(self._num_cols)]
+            diversity_cost = [np.sum(distances[:,i]) for i in range(self._num_cols)]
 
             # add small dummy for scaling factor
             diversity_cost = [c + 1e-4 for c in diversity_cost]
@@ -419,6 +402,16 @@ class ContentSelector:
 
         data = Data(cost=unicost, matrix=self.matrix)
         selected = self._solve_set_cover(data)
+
+        num_row_covered = self._get_num_row_covered(selected)
+
+        if self.verbose:
+            print("=" * 40)
+            print("SIZE:", len(selected), "reduction: {:.2f}".format((self._num_cols - len(selected)) / self._num_cols))
+            print("SELECTED:", selected)
+            print("NUM ROWS COVERED:", num_row_covered, "coverage: {:.2f}".format(num_row_covered / self._num_rows))
+            print("STATUS: EXACT")
+            print("=" * 40)
 
         return selected
 
@@ -443,17 +436,11 @@ class ContentSelector:
         assert model.status == OptimizationStatus.OPTIMAL, "Max Cover Error: optimal solution not found."
 
         # Solution
-
         selected = [i for i in data.X if float(x[i].x) >= 0.99]
-        num_row_covered = self._get_num_row_covered(selected)
 
         if self.verbose:
             print("=" * 40)
             print("OBJECTIVE:", model.objective_value)
-            print("SIZE:", len(selected), "reduction: {:.2f}".format((self._num_cols - len(selected)) / self._num_cols))
-            print("SELECTED:", selected)
-            print("NUM ROWS COVERED:", num_row_covered, "coverage: {:.2f}".format(num_row_covered / self._num_rows))
-            print("STATUS:", model.status)
             print("=" * 40)
 
         # Return
