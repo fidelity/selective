@@ -185,7 +185,6 @@ class ContentSelector:
 
         # Content feature (with textwiser)
         feature_column = self.featurization_method.fit_transform(input_df)
-        # self.features = np.array([eval(l) if isinstance(l, str) else l for l in input_df[feature_column].tolist()])
         self.features = np.array([eval(l) if isinstance(l, str) else l for l in feature_column.tolist()])
 
         assert (self.matrix.ndim == 2), "Process Data Error: matrix should 2D"
@@ -243,19 +242,25 @@ class ContentSelector:
 
         # Set the seed
         random.seed(self.seed)
-
         best_selected = []
         best_covered = 0
+
+        if self.selection_size is None:
+            unicost = np.ones(self._num_cols)
+            data = Data(cost=unicost, matrix=self.matrix)
+            unicost_selected = self._solve_set_cover(data)
+            selected_size = len(unicost_selected)
+        else:
+            selected_size = self.selection_size
+
         for t in range(self.trials):
             # Select a sample of selection_size without repetition
             selected = []
-            while len(selected) < self.selection_size and self._num_cols is not None:
+            while len(selected) < selected_size and self._num_cols is not None:
                 i = random.randint(0, self._num_cols - 1)
                 while i in selected:
                     i = random.randint(0, self._num_cols -1)
                 selected.append(i)
-
-            # selected = random.sample([i for i in range(self._num_cols)], self.selection_size)
 
             # Count covered categories
             num_row_covered = self._get_num_row_covered(selected)
@@ -268,7 +273,7 @@ class ContentSelector:
         coverage = num_row_covered / self._num_rows
 
         if self.verbose:
-            print("\nRANDOM SELECTION:", self.selection_size, "columns to cover rows ", self._num_rows)
+            print("\nRANDOM SELECTION:", selected_size, "columns to cover rows ", self._num_rows)
             print("=" * 40)
             print("SIZE:", len(best_selected),
                   "reduction: {:.2f}".format((self._num_cols - len(best_selected)) / self._num_cols))
@@ -282,11 +287,19 @@ class ContentSelector:
 
     def _select_greedy(self) -> List:
 
-        if self.cost_metric == "diverse":
-            unicost = np.zeros(self._num_cols)
-            k = len(unicost)
+        if self.selection_size is None:
+            unicost_set_cover = np.ones(self._num_cols)
+            data = Data(cost=unicost_set_cover, matrix=self.matrix)
+            unicost_selected = self._solve_set_cover(data)
+            selected_size = len(unicost_selected)
+        else:
+            selected_size = self.selection_size
 
-            kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
+        if self.cost_metric == "diverse":
+            # unicost = np.zeros(self._num_cols)
+            # k = len(unicost)
+
+            kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
             distances = kmeans.fit_transform(self.features)
             diversity_cost = [np.min(distances[:,i]) for i in range(self._num_cols)]
 
@@ -315,7 +328,7 @@ class ContentSelector:
         epsilon = 1E-5
         size = sum(selected)
         # While there are uncovered rows and below selection size
-        while np.count_nonzero(iuncovered) > 0 and size < self.selection_size:
+        while np.count_nonzero(iuncovered) > 0 and size < selected_size:
 
             # Faster than indexing, made possible by sparse_col.dot
             mu = sparse_col.dot(iuncovered.astype(int)).astype(float)
@@ -338,8 +351,8 @@ class ContentSelector:
 
             iuncovered = ~np.logical_or(~iuncovered, self.matrix[:, inewcolumn])
 
-        if size == self.selection_size:
-            print("Warning: max greedy reached selection size", self.selection_size)
+        if size == selected_size:
+            print("Warning: max greedy reached selection size", selected_size)
 
         # Solution
         selected = list(selected.nonzero()[0])
@@ -449,7 +462,7 @@ class ContentSelector:
     def _solve_max_cover(self, data: Data, selected: List) -> List:
 
         # If selected is given, limit the max_cover_size
-        if selected is not None and len(selected) > 0:
+        if selected is not None and self.selection_size is not None and len(selected) > 0:
             assert (self.selection_size <= len(selected)), "Max Cover Error: max_cover_size cannot exceed num selected"
 
         # Model

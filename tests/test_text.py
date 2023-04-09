@@ -27,7 +27,7 @@ class TestText(BaseTest):
         method = SelectionMethod.TextBased(num_features=None,
                                            featurization_method=TextWiser(Embedding.TfIdf(),
                                                                           Transformation.NMF()),
-                                           optimization_method="max_cover")
+                                           optimization_method="random")
 
 
         selector = Selective(method)
@@ -53,8 +53,8 @@ class TestText(BaseTest):
                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=1),
                                                                           [Transformation.NMF(n_components=30),
                                                                            Transformation.SVD(n_components=10)]),
-                                           optimization_method="exact",
-                                           cost_metric="diverse")
+                                           optimization_method="greedy",
+                                           cost_metric="unicost")
 
         selector = Selective(method)
         selector.fit(data, labels)
