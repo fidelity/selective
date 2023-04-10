@@ -287,19 +287,11 @@ class ContentSelector:
 
     def _select_greedy(self) -> List:
 
-        if self.selection_size is None:
-            unicost_set_cover = np.ones(self._num_cols)
-            data = Data(cost=unicost_set_cover, matrix=self.matrix)
-            unicost_selected = self._solve_set_cover(data)
-            selected_size = len(unicost_selected)
-        else:
-            selected_size = self.selection_size
-
         if self.cost_metric == "diverse":
-            # unicost = np.zeros(self._num_cols)
-            # k = len(unicost)
+            unicost = np.zeros(self._num_cols)
+            k = len(unicost)
 
-            kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
+            kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
             distances = kmeans.fit_transform(self.features)
             diversity_cost = [np.min(distances[:,i]) for i in range(self._num_cols)]
 
@@ -327,6 +319,16 @@ class ContentSelector:
 
         epsilon = 1E-5
         size = sum(selected)
+
+        # define threshold for selection size
+        if self.selection_size is None:
+            unicost_set_cover = np.ones(self._num_cols)
+            data = Data(cost=unicost_set_cover, matrix=self.matrix)
+            unicost_selected = self._solve_set_cover(data)
+            selected_size = len(unicost_selected)
+        else:
+            selected_size = self.selection_size
+
         # While there are uncovered rows and below selection size
         while np.count_nonzero(iuncovered) > 0 and size < selected_size:
 
