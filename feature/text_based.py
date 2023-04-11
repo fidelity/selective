@@ -117,28 +117,29 @@ class ContentSelector:
 
     def run_content_selection(self,
                               input_df: pd.DataFrame,
-                              categories: List[str], feature_column: str, featurization_method: TextWiser,
-                              method: str = "max_cover",
-                              cost_metric: str = "unicost") -> List:
+                              categories: List[int], featurization_method: TextWiser, method: str = "exact",
+                              cost_metric: Optional[str] = "unicost") -> List:
+
         """Run content selection algorithm.
 
         Parameters
         ----------
         input_df: pd.DataFrame
             Input data frame with categories and features of content to select from.
-        categories: List[str]
+
+        categories: List[int]
             List of columns in data that contains categories/labels to be covered.
-        feature_column: st
-            Column with numeric featurization of content text.
+
         featurization_method: TextWiser
 
-        method: str, default="max_cover"
+        method: str, default="exact"
             Method used to perform content selection. Supported options are:
             - "max_cover" maximizes content diversity and minimizes the number of content to cover all content labels.
             - "kmeans" clusters the content into selection_size number of clusters and then selects the items closest
               to the centroid of each of the clusters. This method does not consider the content categories/labels.
             - "greedy" performs greedy heuristic selecting items with max unit coverage until all items are covered
             - "random" performs a random selection.
+            - "exact" solves a set cover using Python-MIP package
 
         cost_metric: str, default = "unicost"
 
@@ -150,7 +151,7 @@ class ContentSelector:
         # Process data
         self.cost_metric = cost_metric
         self.featurization_method = featurization_method
-        self._process_df(input_df, categories)
+        self._process_df(input_df, categories, method)
 
         # Run multi-level set covering optimization
         if method == "max_cover":
@@ -175,22 +176,42 @@ class ContentSelector:
 
         return selected
 
-    def _process_df(self, input_df: pd.DataFrame, categories: List[int]) -> NoReturn:
+    def _process_df(self, input_df: pd.DataFrame, categories: List[int], method: str) -> NoReturn:
         """
-        without categories the dimensions do not match with correct number of rows and columns.
-        Therefore, directly input the labels data to matrix
+
+        Parameters
+        ----------
+        input_df: pd.DataFrame
+            Input data frame with categories and features of content to select from.
+
+        categories: List[int]
+            List of columns in data that contains categories/labels to be covered.
+
+        method: str
+            Optimization method called. The function need method parameter to prevent performing featurization in
+             the case that it does not require.
+
+        Returns
+        -------
+        No return
+       --------
+        * categories is the list of labels. code for labels with categories moved to utils.py
         """
         self.matrix = categories.to_numpy()
         self._num_rows, self._num_cols = self.matrix.shape
 
-        # Content feature (with textwiser)
-        feature_column = self.featurization_method.fit_transform(input_df)
-        self.features = np.array([eval(l) if isinstance(l, str) else l for l in feature_column.tolist()])
+        # Content feature (with TextWiser)
+        if method == "random":
+            # skip featurization step
+            pass
+        else:
+            feature_column = self.featurization_method.fit_transform(input_df)
+            self.features = np.array([eval(l) if isinstance(l, str) else l for l in feature_column.tolist()])
+            assert (len(self.features) == self._num_cols), \
+                f"Process Data Error: features size ({len(self.features)}) " \
+                f"should match the number of columns ({self._num_cols})"
 
         assert (self.matrix.ndim == 2), "Process Data Error: matrix should 2D"
-        assert (len(self.features) == self._num_cols), \
-            f"Process Data Error: features size ({len(self.features)}) " \
-            f"should match the number of columns ({self._num_cols})"
         if self.selection_size is not None:
             assert (self.selection_size <= self._num_cols), "Process Data Error: selection_size cannot exceed num columns"
 
@@ -287,13 +308,19 @@ class ContentSelector:
 
     def _select_greedy(self) -> List:
 
-        if self.cost_metric == "diverse":
-            unicost = np.zeros(self._num_cols)
-            k = len(unicost)
+        # decision for selection size
+        if self.selection_size is None:
+            unicost_selection = np.ones(self._num_cols)
+            data = Data(cost=unicost_selection, matrix=self.matrix)
+            unicost_selected = self._solve_set_cover(data)
+            selected_size = len(unicost_selected)
+        else:
+            selected_size = self.selection_size
 
-            kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
+        if self.cost_metric == "diverse":
+            kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
             distances = kmeans.fit_transform(self.features)
-            diversity_cost = [np.min(distances[:,i]) for i in range(self._num_cols)]
+            diversity_cost = [np.min(distances[i]) for i in range(self._num_cols)]
 
             # add small dummy for scaling factor
             diversity_cost = [c + 1e-4 for c in diversity_cost]
@@ -319,15 +346,6 @@ class ContentSelector:
 
         epsilon = 1E-5
         size = sum(selected)
-
-        # define threshold for selection size
-        if self.selection_size is None:
-            unicost_set_cover = np.ones(self._num_cols)
-            data = Data(cost=unicost_set_cover, matrix=self.matrix)
-            unicost_selected = self._solve_set_cover(data)
-            selected_size = len(unicost_selected)
-        else:
-            selected_size = self.selection_size
 
         # While there are uncovered rows and below selection size
         while np.count_nonzero(iuncovered) > 0 and size < selected_size:
@@ -367,6 +385,7 @@ class ContentSelector:
             print("SELECTED:", selected)
             print("NUM ROWS COVERED:", num_row_covered, "coverage: {:.2f}".format(num_row_covered / self._num_rows))
             print("STATUS: GREEDY")
+            print("COST METRIC:", self.cost_metric)
             print("=" * 40)
 
         return selected
@@ -376,18 +395,17 @@ class ContentSelector:
             unicost = np.ones(self._num_cols)
             data = Data(cost=unicost, matrix=self.matrix)
             unicost_selected = self._solve_set_cover(data)
-            # Find clusters in the embedding space
-            k = len(unicost_selected)
+            selected_size = len(unicost_selected)
         else:
-            k = self.selection_size
+            selected_size = self.selection_size
 
-        kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
+        kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
         kmeans.fit(self.features)
         selected = self._get_closest_to_centroids(kmeans)
         num_row_covered = self._get_num_row_covered(selected)
 
         if self.verbose:
-            print("\nKMEANS SELECTION:", self.selection_size, " columns to cover rows", self._num_rows)
+            print("\nKMEANS SELECTION:", selected_size, " columns to cover rows", self._num_rows)
             print("=" * 40)
             print("SIZE:", len(selected), "reduction: {:.2f}".format((self._num_cols - len(selected)) / self._num_cols))
             print("SELECTED:", selected)
@@ -404,7 +422,7 @@ class ContentSelector:
             k = len(unicost)
             kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
             distances = kmeans.fit_transform(self.features)
-            diversity_cost = [np.sum(distances[:,i]) for i in range(self._num_cols)]
+            diversity_cost = [np.min(distances[i]) for i in range(self._num_cols)]
 
             # add small dummy for scaling factor
             diversity_cost = [c + 1e-4 for c in diversity_cost]
@@ -426,6 +444,7 @@ class ContentSelector:
             print("SELECTED:", selected)
             print("NUM ROWS COVERED:", num_row_covered, "coverage: {:.2f}".format(num_row_covered / self._num_rows))
             print("STATUS: EXACT")
+            print("COST METRIC:", self.cost_metric)
             print("=" * 40)
 
         return selected
@@ -455,7 +474,7 @@ class ContentSelector:
 
         if self.verbose:
             print("=" * 40)
-            print("OBJECTIVE:", model.objective_value)
+            print("SET COVER OBJECTIVE:", model.objective_value)
             print("=" * 40)
 
         # Return
@@ -651,8 +670,11 @@ class _TextBased(_BaseSupervisedSelector):
         text_columns = [col for col in data.columns if col.startswith("item")]
 
         # Perform content selection using the specified method
-        selected_indicies = self.content_selector.run_content_selection(data, labels, text_columns,
-                                                                        self.featurization_method,
+        # selected_indicies = self.content_selector.run_content_selection(data, labels, text_columns,
+        #                                                                 self.featurization_method,
+        #                                                                 self.optimization_method, self.cost_metric)
+
+        selected_indicies = self.content_selector.run_content_selection(data, labels, self.featurization_method,
                                                                         self.optimization_method, self.cost_metric)
 
         # Only select the features that were selected during fit
@@ -665,5 +687,9 @@ class _TextBased(_BaseSupervisedSelector):
 
         # print the selected features
         feature_selected = data[self.selected_features_]
+        print("Selected items:")
+        for i, contents in enumerate(feature_selected):
+            print(f"content{i+1}: {contents}")
+        print("=" * 40)
 
         return feature_selected

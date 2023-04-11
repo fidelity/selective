@@ -280,10 +280,10 @@ class SelectionMethod(NamedTuple):
         Unlike other selection method, this method operates on textual data, X_textual.
         In this context, each column/feature in X_textual can be referred to an item with textual description.
         Similarly, Y represents the labels that are covered by each item.
+        In the test_text.py, X_textual defines as data and Y defines as labels.
 
-        This method uses a multi-objective optimization problem that is based on
-        set covering formulation as published in [1].
-        The idea is to select the minimum number of items from X_text that
+        The paper [1] provides a multi-objective optimization problem that is based on
+        set covering formulation. The idea is to select the minimum number of items from X_textual that
         maximizes the item diversity of the text featurization of items (controlled by the featurization method)
         while also maximizing the coverage of labels given in Y.
         If no Y is given, it selects #TODO..
@@ -306,23 +306,32 @@ class SelectionMethod(NamedTuple):
         Attributes
         ----------
         num_features : Num, optional
-            If integer, select max_num_features.
-            If float, select the percentile of max_num_features.
-            #TODO is this true? Unlike other methods, this is maximum number of features.
+            * If num_feature is integer value, select num_features (less than equal max_num_features) based on selected
+            optimization_method and cost metrics (if it is required).
+            * If num_feature is None, num_features defines by solving a set cover problem using unicost and matrix
+            of labels.
             The algorithm might choose a less number of features depending on other parameters.
-        featurization_method : TextWiser object to featurize items in X_textual
-                                This method does not have impact when use random and greedy with unicost
+
+        featurization_method :
+            TextWiser object to featurize items in X_textual (named data is test and this method does not have impact
+             on the following configuration:
+                - Random optimization
+                - Greedy optimization with unicost as cost_metric
+
         optimization_method : str, optional
-            * exact: This method finds the optimum solution using the python-mip constraint solver.
+            * exact: This method finds the optimum solution using the Python-MIP package to solve a set cover.
             * greedy: This method finds a greedy solution by adding items step by step
-                      using a greedy heuristic that covers the most labels. It need text featurization of items
-                      to implement diverse cost metric
+                      using a greedy heuristic that covers the most labels.
+                      The text featurization uses to implement diverse cost metric.
             * kmeans: This method clusters the text featurization space into k clusters
                       where k is either the solution of the exact unicost selection, or,
                       the given num_features. Then, items close the centroids are selected
                       kmeans does not need cost metrics.
             * random: This method finds a random solution by selecting a random set of items.
                        Random does not need cost metric.
+           * max_cover: This method find the solution based on the multi-level optimization in the paper [1].
+                        num_feature must be an integer for third optimization level (solving max cover).
+
         cost_metric : str, optional;
             * unicost: Each item/feature incurs a cost of one when included in the selection.
                         For random this parameter does not impact.
@@ -336,7 +345,7 @@ class SelectionMethod(NamedTuple):
         num_features: Union[int, None]
         featurization_method: TextWiser = TextWiser(Embedding.TfIdf(min_df=10), Transformation.NMF(n_components=30))
         optimization_method: str = "exact"
-        cost_metric: Optional[str] = None
+        cost_metric: Optional[str] = "unicost"
 
 
         def _validate(self):

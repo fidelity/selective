@@ -9,45 +9,86 @@ from textwiser import TextWiser, Embedding, PoolOptions, Transformation, WordOpt
 
 
 
-
 class TestText(BaseTest):
 
-    def test_text_based_random_or_kmeans(self):
-        data = pd.DataFrame({"item1": ["this is a sentences with more common words"],
-                             "item2": ["second one in list of more frequent sentences"],
-                             "item3": ["a word for more complexity"],
-                             "item4": ["sentence with a lot of repeated common words"],
-                             "item5": ["more frequent words with a valid vector"]})
-        labels = pd.DataFrame({"item1": [1, 0, 0, 0, 0], "item2": [0, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 0],
-                               "item4": [1, 0, 1, 0, 0], "item5": [0, 1, 0, 0, 1]})
+    def test_text_based_random(self):
+        data = pd.DataFrame(
+            {"item1": ["this is a sentences with more common words and more words to increase frequency"],
+             "item2": ["second one in list of more frequent sentences with some repeated words"],
+             "item3": ["a word for more complexity and longer length"],
+             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
+             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
+        labels = pd.DataFrame({"item1": [1, 0, 1, 0, 1], "item2": [0, 1, 0, 1, 0], "item3": [1, 0, 1, 0, 0],
+                               "item4": [1, 0, 1, 1, 0], "item5": [0, 1, 0, 0, 1]})
 
         print(data)
         print(labels)
 
         method = SelectionMethod.TextBased(num_features=None,
-                                           featurization_method=TextWiser(Embedding.TfIdf(),
-                                                                          Transformation.NMF()),
                                            optimization_method="random")
 
 
         selector = Selective(method)
         selector.fit(data, labels)
-        subset = selector.transform(data)
-        print(subset)
+        selector.transform(data)
+
+    """
+        optimization_method : random
+        num_features:
+            - integer: defines by user
+            - None: the number of feature computed by solving a set cover problem using labels
+    """
 
 
-    def test_text_based_greedy_or_exact(self):
-        data = pd.DataFrame({"item1": ["this is a sentences with more common words"],
-                             "item2": ["second one in list of more frequent sentences"],
-                             "item3": ["a word for more complexity"],
-                             "item4": ["sentence with a lot of repeated common words"],
-                             "item5": ["more frequent words with a valid vector"]})
-        labels = pd.DataFrame({"item1": [1, 0, 0, 0, 0], "item2": [0, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 0],
-                               "item4": [1, 0, 1, 0, 0], "item5": [0, 1, 0, 0, 1]})
+    def test_text_based_kmeans_or_max_cover(self):
+        data = pd.DataFrame(
+            {"item1": ["this is a sentences with more common words and more words to increase frequency"],
+             "item2": ["second one in list of more frequent sentences with some repeated words"],
+             "item3": ["a word for more complexity and longer length"],
+             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
+             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
+        labels = pd.DataFrame({"item1": [1, 0, 0, 0, 1], "item2": [0, 1, 0, 1, 0], "item3": [1, 0, 1, 0, 0],
+                               "item4": [1, 0, 0, 0, 0], "item5": [0, 1, 0, 0, 1]})
+
         print(data)
         print(labels)
 
-        method = SelectionMethod.TextBased(num_features=2,
+        method = SelectionMethod.TextBased(num_features=3,
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                                                          [Transformation.NMF(n_components=30),
+                                                                           Transformation.SVD(n_components=10)]),
+                                           optimization_method="max_cover")
+
+
+        selector = Selective(method)
+        selector.fit(data, labels)
+        selector.transform(data)
+
+    """
+        optimization_method : kmeans
+        featurization_method(required)
+        num_features:
+            - integer: defines by user
+            - None: the number of feature computed by solving a set cover problem using labels
+            
+        optimization_method : max_cover
+        featurization_method(required)
+        num_features:
+            - integer: defines by user
+=    """
+
+    def test_text_based_greedy_or_exact(self):
+        data = pd.DataFrame({"item1": ["this is a sentences with more common words and more words to increase frequency"],
+                             "item2": ["second one in list of more frequent sentences with some repeated words"],
+                             "item3": ["a word for more complexity and longer length"],
+                             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
+                             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
+        labels = pd.DataFrame({"item1": [1, 0, 1, 0, 1], "item2": [0, 1, 0, 1, 0], "item3": [1, 0, 1, 0, 0],
+                               "item4": [1, 0, 1, 1, 0], "item5": [0, 1, 0, 0, 1]})
+        print(data)
+        print(labels)
+
+        method = SelectionMethod.TextBased(num_features=None,
                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
                                                                           [Transformation.NMF(n_components=30),
                                                                            Transformation.SVD(n_components=10)]),
@@ -56,9 +97,22 @@ class TestText(BaseTest):
 
         selector = Selective(method)
         selector.fit(data, labels)
-        subset = selector.transform(data)
-        print(subset)
+        selector.transform(data)
 
+        """
+            optimization_method : greedy
+            featurization_method(required)
+            num_features:
+                - integer: defines by user
+                - None: the number of feature computed by solving a set cover problem using labels
+            cost_metric: unicost or diverse
+
+            optimization_method : exact
+            featurization_method(required)
+            num_features:
+                - None: algorithm defines/optimizes the number of features
+            cost_metric: unicost or diverse
+        """
 
 
 
