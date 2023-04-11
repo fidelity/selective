@@ -669,10 +669,6 @@ class _TextBased(_BaseSupervisedSelector):
         # Get the text columns dynamically
         text_columns = [col for col in data.columns if col.startswith("item")]
 
-        # Perform content selection using the specified method
-        # selected_indicies = self.content_selector.run_content_selection(data, labels, text_columns,
-        #                                                                 self.featurization_method,
-        #                                                                 self.optimization_method, self.cost_metric)
 
         selected_indicies = self.content_selector.run_content_selection(data, labels, self.featurization_method,
                                                                         self.optimization_method, self.cost_metric)
