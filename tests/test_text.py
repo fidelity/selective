@@ -25,8 +25,8 @@ class TestText(BaseTest):
              "item3": ["a word for more complexity and longer length"],
              "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
              "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
-        labels = pd.DataFrame({"item1": [1, 0, 0, 0, 1], "item2": [0, 1, 0, 1, 0], "item3": [1, 0, 1, 0, 0],
-                               "item4": [1, 0, 0, 0, 0], "item5": [0, 1, 0, 0, 1]})
+        labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
+                               "item4": [0, 1, 1, 0, 1], "item5": [0, 1, 0, 0, 1]})
 
         print(data)
         print(labels)
@@ -39,7 +39,6 @@ class TestText(BaseTest):
         selector.transform(data)
 
 
-
     def test_text_based_random_unicost(self):
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
@@ -47,12 +46,11 @@ class TestText(BaseTest):
              "item3": ["a word for more complexity and longer length"],
              "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
              "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
-        labels = pd.DataFrame({"item1": [1, 0, 0, 0, 1], "item2": [0, 1, 0, 1, 0], "item3": [1, 0, 1, 0, 0],
-                               "item4": [1, 0, 0, 0, 0], "item5": [0, 1, 0, 0, 1]})
+        labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
+                               "item4": [0, 1, 1, 0, 1], "item5": [0, 1, 0, 0, 1]})
 
         print(data)
         print(labels)
-
         method = SelectionMethod.TextBased(num_features=None,
                                            optimization_method="random",
                                            cost_metric="unicost")
@@ -69,9 +67,8 @@ class TestText(BaseTest):
              "item3": ["a word for more complexity and longer length"],
              "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
              "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
-        labels = pd.DataFrame({"item1": [1, 0, 0, 0, 1], "item2": [0, 1, 0, 1, 0], "item3": [1, 0, 1, 0, 0],
-                               "item4": [1, 0, 0, 0, 0], "item5": [0, 1, 0, 0, 1]})
-
+        labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
+                               "item4": [0, 1, 1, 0, 1], "item5": [0, 1, 0, 0, 1]})
         print(data)
         print(labels)
 

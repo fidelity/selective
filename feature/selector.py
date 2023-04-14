@@ -349,8 +349,8 @@ class SelectionMethod(NamedTuple):
         # Defualt values
         num_features: Union[int, None]
         featurization_method: TextWiser = TextWiser(Embedding.TfIdf(min_df=10), Transformation.NMF(n_components=30))
-        optimization_method: str = "exact"
-        cost_metric: Optional[str] = "unicost"
+        optimization_method: str = "random"
+        cost_metric: Optional[str] = None
 
 
         def _validate(self):

@@ -107,7 +107,6 @@ class ContentSelector:
         self.verbose = verbose == 1
 
 
-
         # Initialize class variables
         self.matrix = None
         self.features = None
@@ -116,8 +115,8 @@ class ContentSelector:
 
     def run_content_selection(self,
                               input_df: pd.DataFrame,
-                              categories: List[int], featurization_method: TextWiser, method: str = "exact",
-                              cost_metric: Optional[str] = "unicost") -> List:
+                              categories: List[int], featurization_method: TextWiser, method: str = "random",
+                              cost_metric: Optional[str] = None) -> List:
 
         """Run content selection algorithm.
 
@@ -133,14 +132,13 @@ class ContentSelector:
 
         method: str, default="exact"
             Method used to perform content selection. Supported options are:
-            - "max_cover" maximizes content diversity and minimizes the number of content to cover all content labels.
+            - "exact" maximizes content diversity and minimizes the number of content to cover all content labels.
             - "kmeans" clusters the content into selection_size number of clusters and then selects the items closest
               to the centroid of each of the clusters. This method does not consider the content categories/labels.
             - "greedy" performs greedy heuristic selecting items with max unit coverage until all items are covered
             - "random" performs a random selection.
-            - "exact" solves a set cover using Python-MIP package
 
-        cost_metric: str, default = "unicost"
+        cost_metric: str, default = None
 
         Returns
         -------
@@ -185,12 +183,12 @@ class ContentSelector:
             List of columns in data that contains categories/labels to be covered.
 
         method: str
-            The function need method parameter to prevent performing featurization in
+            The function need method to prevent performing featurization in
              the case that optimization method is random(t or unicost) or greedy(unicost)
 
         cost_metric: str
-            The function need method parameter to prevent performing featurization in
-             the case that cost metric is None or unicost
+            The function need cost metric to prevent performing featurization in
+             the case that cost metric is None or unicost (for random and greedy)
 
         Returns
         -------
@@ -219,7 +217,7 @@ class ContentSelector:
 
 
 
-    def _select_random(self) -> List[int]: # it returns selected column indices
+    def _select_random(self) -> List[int]:# it returns selected column indices
         # Set the seed
         random.seed(self.seed)
         best_selected = []
@@ -267,6 +265,7 @@ class ContentSelector:
             print("NUM (AVG) ROWS COVERED:",
                   num_row_covered, "coverage: {:.2f}".format(coverage))
             print("STATUS: RANDOM")
+            print("Cost Metric:", self.cost_metric)
             print("=" * 40)
 
         return best_selected
@@ -303,13 +302,33 @@ class ContentSelector:
         # Return
         return selected
 
+
     def _get_diversity_cost(self, selected_size: int) -> List[float]:
+        """
+        diversity cost:
+            there is a situation where selected_size is equal to the number of rows in features and all diversity
+             costs become zero. There are two ways to handle this situation:
+                * add dummy cost to diversity cost (DUMMY)
+                * check if any of the distances in the distances matrix is zero, and if so, replace it with
+                 the next smallest non-zero distance (NEXT_S_DIS).
+        """
         kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
         distances = kmeans.fit_transform(self.features)
+
+        ##########NEXT_S_DIS#####
+        for i in range(self._num_cols):
+            if np.min(distances[i]) == 0:
+                nonzero_distances = distances[i][np.nonzero(distances[i])]
+                if len(nonzero_distances) > 0:
+                    min_nonzero_distance = np.min(nonzero_distances)
+                    distances[i][distances[i] == 0] = min_nonzero_distance
+        ##########NEXT_S_DIS#####
+
         diversity_cost = [np.min(distances[i]) for i in range(self._num_cols)]
 
-        # add small dummy if costs based on distance matrix are zeros
-        diversity_cost = [c + 1e-4 for c in diversity_cost]
+        ##########DUMMY##########
+        # diversity_cost = [c + 1e-1 for c in diversity_cost]
+        ##########DUMMY##########
 
         # Scale contexts so that sum of costs remain constant
         diversity_cost = [c * self._num_cols / sum(diversity_cost) for c in diversity_cost]
@@ -347,7 +366,7 @@ class _TextBased(_BaseSupervisedSelector):
         # Call constructor of parent class _BaseSupervisedSelector
         super().__init__(seed)
 
-        self.num_features = num_features    # this could be int or float
+        self.num_features = num_features
         self.featurization_method = featurization_method
         self.optimization_method = optimization_method
         self.cost_metric = cost_metric
@@ -375,11 +394,9 @@ class _TextBased(_BaseSupervisedSelector):
         print("Selected items:")
         for i, contents in enumerate(feature_selected):
             print(f"content{i+1}: {contents}")
-        print("=" * 40)
+        print("=" * 110)
 
         return feature_selected
-
-
 
 
 
