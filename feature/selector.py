@@ -291,9 +291,12 @@ class SelectionMethod(NamedTuple):
         References:
         [1] Kadioglu et. al., Optimized Item Selection to Boost Exploration for Recommender Systems, CPAIOR'21
 
-        # TODO
         The parameters corresponding to the methods in the paper [1]
         random:
+            trails, seed, verbose
+            * random(t=max_num_features): num_features
+            * random(t=unicost()): num_features=None, cost_metric
+            * random(t=diverse()): num_features=None, featurization_method=TextWiser, cost_metric
         kmeans:
         greedy:
         unicost:
@@ -306,19 +309,23 @@ class SelectionMethod(NamedTuple):
         Attributes
         ----------
         num_features : Num, optional
-            * If num_feature is integer value, select num_features (less than equal max_num_features) based on selected
-            optimization_method and cost metrics (if it is required).
-            * If num_feature is None, num_features defines by solving a set cover problem using unicost and matrix
-            of labels.
+            * If num_feature is integer value, select max_num_features.
+            * If num_feature is None, num_features defines by solving a set cover problem using unicost or diverse
             The algorithm might choose a less number of features depending on other parameters.
 
         featurization_method :
-            TextWiser object to featurize items in X_textual (named data is test and this method does not have impact
-             on the following configuration:
-                - Random optimization
+            TextWiser object to featurize items in X_textual (it is named data in test and this method does not
+            have impact on the following options:
+                - Random optimization with num_features = max_num_features
                 - Greedy optimization with unicost as cost_metric
 
         optimization_method : str, optional
+            * random: This method finds a random solution by selecting a random set of items.
+                           The number of selected times (num_features = t):
+                                - t = maximum number of features defines by user.
+                                      The cost_metric input argument needs to ignore in this case.
+                                - t = None: the number of feature computed by solving a set cover problem with
+                                      cost metrics (unicost or diverse)
             * exact: This method finds the optimum solution using the Python-MIP package to solve a set cover.
             * greedy: This method finds a greedy solution by adding items step by step
                       using a greedy heuristic that covers the most labels.
@@ -327,8 +334,6 @@ class SelectionMethod(NamedTuple):
                       where k is either the solution of the exact unicost selection, or,
                       the given num_features. Then, items close the centroids are selected
                       kmeans does not need cost metrics.
-            * random: This method finds a random solution by selecting a random set of items.
-                       Random does not need cost metric.
            * max_cover: This method find the solution based on the multi-level optimization in the paper [1].
                         num_feature must be an integer for third optimization level (solving max cover).
 
@@ -358,7 +363,7 @@ class SelectionMethod(NamedTuple):
             check_true(isinstance(self.featurization_method, TextWiser),
                        ValueError("Unknown featurization method" + str(self.featurization_method)))
 
-            check_true(self.optimization_method in ["max_cover", "exact", "greedy", "kmeans", "random"],
+            check_true(self.optimization_method in ["exact", "greedy", "kmeans", "random"],
                        ValueError("Optimization method can only be exact, greedy, kmeans, random."))
 
             check_true(self.cost_metric in ["unicost", "diverse", None],

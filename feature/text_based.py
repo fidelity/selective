@@ -17,7 +17,6 @@ from scipy import sparse
 
 
 from textwiser import TextWiser, Embedding, Transformation
-# from gurobipy import *
 
 
 
@@ -151,10 +150,10 @@ class ContentSelector:
         # Process data
         self.cost_metric = cost_metric
         self.featurization_method = featurization_method
-        self._process_df(input_df, categories, method)
+        self._process_df(input_df, categories, method, cost_metric)
 
         # Run multi-level set covering optimization
-        if method == "max_cover":
+        if method == "exact":
             selected = self._select_multi_level_optimization()
         # Run KMeans selection algorithm
         elif method == "kmeans":
@@ -165,9 +164,6 @@ class ContentSelector:
         # Run random selection algorithm
         elif method == "random":
             selected = self._select_random()
-        # Run exact selection algorithm
-        elif method == "exact":
-            selected = self._select_exact()
         else:
             raise NotImplementedError(f"{method} has not been implemented.")
 
@@ -176,7 +172,8 @@ class ContentSelector:
 
         return selected
 
-    def _process_df(self, input_df: pd.DataFrame, categories: List[int], method: str) -> NoReturn:
+    def _process_df(self, input_df: pd.DataFrame, categories: List[int], method: str, cost_metric: Optional[str]) \
+            -> NoReturn:
         """
 
         Parameters
@@ -188,8 +185,12 @@ class ContentSelector:
             List of columns in data that contains categories/labels to be covered.
 
         method: str
-            Optimization method called. The function need method parameter to prevent performing featurization in
-             the case that it does not require.
+            The function need method parameter to prevent performing featurization in
+             the case that optimization method is random(t or unicost) or greedy(unicost)
+
+        cost_metric: str
+            The function need method parameter to prevent performing featurization in
+             the case that cost metric is None or unicost
 
         Returns
         -------
@@ -201,8 +202,9 @@ class ContentSelector:
         self._num_rows, self._num_cols = self.matrix.shape
 
         # Content feature (with TextWiser)
-        if method == "random":
-            # skip featurization step
+        if method == "random" and cost_metric in [None, "unicost"]:
+            pass
+        elif method == "greedy" and cost_metric == "unicost":
             pass
         else:
             feature_column = self.featurization_method.fit_transform(input_df)
@@ -215,62 +217,25 @@ class ContentSelector:
         if self.selection_size is not None:
             assert (self.selection_size <= self._num_cols), "Process Data Error: selection_size cannot exceed num columns"
 
-    def _select_multi_level_optimization(self) -> List:
 
-        if self.verbose:
-            print("\nFIRST LEVEL: Solve unicost set covering")
-        num_content = self._num_cols
-        unicost = np.ones(num_content)
-        data = Data(cost=unicost, matrix=self.matrix)
-        unicost_selected = self._solve_set_cover(data)
-        if self.verbose:
-            print("\nSECOND LEVEL: Maximize diversity")
-        # Find clusters in the embedding space
-        k = len(unicost_selected)
-        kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
-        distances = kmeans.fit_transform(self.features)
-        diversity_cost = [np.min(distances[i]) for i in range(num_content)]
 
-        # Scale contexts so that sum of costs remain constant
-        diversity_cost = [c * num_content / sum(diversity_cost) for c in diversity_cost]
-
-        # Update the costs
-        data.cost = diversity_cost
-
-        # Solve set covering with diversity guidance
-        diversity_selected = self._solve_set_cover(data)
-
-        if self.verbose:
-            print("\nTHIRD LEVEL: Maximum Coverage of", self._num_rows, "rows by selecting",
-                  self.selection_size, "columns out of", len(diversity_selected))
-
-        # Among the most diverse columns with full coverage
-        # Select a subset of given max_cover_size
-        # While maximizing the coverage
-        zeros = np.zeros(self._num_cols)  # max coverage has a different objective function
-        data = Data(cost=zeros, matrix=self.matrix)
-        selected = self._solve_max_cover(data, diversity_selected)
-
-        if self.verbose:
-            print("\nOptimized Selection:", selected)
-            print("Selection size:", len(selected))
-
-        # Return solution
-        return selected
-
-    def _select_random(self) -> List[int]:
-        # it returns selected column indices
-
+    def _select_random(self) -> List[int]: # it returns selected column indices
         # Set the seed
         random.seed(self.seed)
         best_selected = []
         best_covered = 0
 
         if self.selection_size is None:
-            unicost = np.ones(self._num_cols)
-            data = Data(cost=unicost, matrix=self.matrix)
-            unicost_selected = self._solve_set_cover(data)
-            selected_size = len(unicost_selected)
+            if self.cost_metric == "unicost":
+                unicost = np.ones(self._num_cols)
+                data = Data(cost=unicost, matrix=self.matrix)
+                unicost_selected = self._solve_set_cover(data)
+                selected_size = len(unicost_selected)
+            else:
+                diversity_cost = self._get_diversity_cost(self._num_cols)
+                data = Data(cost=diversity_cost, matrix=self.matrix)
+                diversity_selected = self._solve_set_cover(data)
+                selected_size = len(diversity_selected)
         else:
             selected_size = self.selection_size
 
@@ -306,6 +271,124 @@ class ContentSelector:
 
         return best_selected
 
+
+    def _solve_set_cover(self, data: Data) -> List:
+
+        # Create Model object
+        model = Model("Set Cover Model")
+
+        # Variables
+        x = [model.add_var(var_type=BINARY) for _ in data.X]
+
+        # Constraint: every row should be covered
+        for row in data.rows:
+            model.add_constr(xsum(data.matrix[row, i] * x[i] for i in data.X) >= 1)
+
+        # Objective: minimize
+        model.objective = minimize(xsum(data.cost[i] * x[i] for i in data.X))
+
+        # Solve (optimize using Gurobi)
+        model.verbose = 0
+        model.optimize()
+        assert model.status == OptimizationStatus.OPTIMAL, "Max Cover Error: optimal solution not found."
+
+        # Solution
+        selected = [i for i in data.X if float(x[i].x) >= 0.99]
+
+        if self.verbose:
+            print("=" * 40)
+            print("SET COVER OBJECTIVE:", model.objective_value)
+            print("=" * 40)
+
+        # Return
+        return selected
+
+    def _get_diversity_cost(self, selected_size: int) -> List[float]:
+        kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
+        distances = kmeans.fit_transform(self.features)
+        diversity_cost = [np.min(distances[i]) for i in range(self._num_cols)]
+
+        # add small dummy if costs based on distance matrix are zeros
+        diversity_cost = [c + 1e-4 for c in diversity_cost]
+
+        # Scale contexts so that sum of costs remain constant
+        diversity_cost = [c * self._num_cols / sum(diversity_cost) for c in diversity_cost]
+
+        return diversity_cost
+
+    def _get_num_row_covered(self, selected) -> int:
+        assert self.matrix is not None, "matrix is not initialized"
+
+        # Create indicator to count number of covered rows
+        row_covered = np.sum(self.matrix[:, selected], axis=1)
+
+        row_covered[row_covered > 0] = 1
+
+        num_row_covered = sum(row_covered)
+
+        return num_row_covered
+
+    @staticmethod
+    def _validate_args(selection_size):
+        if selection_size is not None:
+            if selection_size <= 0:
+                raise ValueError("Selection size must be greater than zero.")
+
+
+# TODO not sure if this should use _BaseDispatcher or not. We can decide later
+class _TextBased(_BaseSupervisedSelector):
+    """
+    featrization and optimization are done in 'fit' function.
+    The 'transform' function is used to show the selected contents
+    """
+
+    def __init__(self, seed: int, num_features: Num,
+                 featurization_method: TextWiser, optimization_method: str, cost_metric: Optional[str] = None):
+        # Call constructor of parent class _BaseSupervisedSelector
+        super().__init__(seed)
+
+        self.num_features = num_features    # this could be int or float
+        self.featurization_method = featurization_method
+        self.optimization_method = optimization_method
+        self.cost_metric = cost_metric
+        self.content_selector = ContentSelector(selection_size=num_features, seed=123456, trials=100, verbose=True)
+
+    def fit(self, data: pd.DataFrame, labels: Union[pd.Series, pd.DataFrame]) -> NoReturn:
+
+        # Call fit method from parent class _BaseSupervisedSelector
+        super().fit(data, labels)
+
+        # Get the text columns dynamically
+        text_columns = [col for col in data.columns if col.startswith("item")]
+
+        selected_indicies = self.content_selector.run_content_selection(data, labels, self.featurization_method,
+                                                                        self.optimization_method, self.cost_metric)
+        # Only select the features that were selected during fit
+        selected_features = [col for i, col in enumerate(text_columns) if i in selected_indicies]
+        self.selected_features_ = selected_features
+
+
+    def transform(self, data: pd.DataFrame) -> pd.DataFrame:
+
+        # print the selected features
+        feature_selected = data[self.selected_features_]
+        print("Selected items:")
+        for i, contents in enumerate(feature_selected):
+            print(f"content{i+1}: {contents}")
+        print("=" * 40)
+
+        return feature_selected
+
+
+
+
+
+#####################################################################################
+#################Below functions will be added once they are required################
+#####################################################################################
+
+################other optimization method (class ContentSelector)####################
+"""
     def _select_greedy(self) -> List:
 
         # decision for selection size
@@ -318,15 +401,7 @@ class ContentSelector:
             selected_size = self.selection_size
 
         if self.cost_metric == "diverse":
-            kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
-            distances = kmeans.fit_transform(self.features)
-            diversity_cost = [np.min(distances[i]) for i in range(self._num_cols)]
-
-            # add small dummy for scaling factor
-            diversity_cost = [c + 1e-4 for c in diversity_cost]
-
-            # Scale contexts so that sum of costs remain constant
-            diversity_cost = [c * self._num_cols / sum(diversity_cost) for c in diversity_cost]
+            diversity_cost = self._get_diversity_cost(selected_size)
             unicost = diversity_cost
         else:
             unicost = np.ones(self._num_cols)
@@ -415,20 +490,13 @@ class ContentSelector:
 
         return selected
 
+
     def _select_exact(self) -> List:
 
         if self.cost_metric == "diverse":
             unicost = np.zeros(self._num_cols)
             k = len(unicost)
-            kmeans = KMeans(n_clusters=k, random_state=self.seed, n_init=self.trials)
-            distances = kmeans.fit_transform(self.features)
-            diversity_cost = [np.min(distances[i]) for i in range(self._num_cols)]
-
-            # add small dummy for scaling factor
-            diversity_cost = [c + 1e-4 for c in diversity_cost]
-
-            # Scale contexts so that sum of costs remain constant
-            diversity_cost = [c * self._num_cols / sum(diversity_cost) for c in diversity_cost]
+            diversity_cost = self._get_diversity_cost(k)
             unicost = diversity_cost
         else:
             unicost = np.ones(self._num_cols)
@@ -449,174 +517,169 @@ class ContentSelector:
 
         return selected
 
-    def _solve_set_cover(self, data: Data) -> List:
 
-        # Create Model object
-        model = Model("Set Cover Model")
-
-        # Variables
-        x = [model.add_var(var_type=BINARY) for _ in data.X]
-
-        # Constraint: every row should be covered
-        for row in data.rows:
-            model.add_constr(xsum(data.matrix[row, i] * x[i] for i in data.X) >= 1)
-
-        # Objective: minimize
-        model.objective = minimize(xsum(data.cost[i] * x[i] for i in data.X))
-
-        # Solve (optimize using Gurobi)
-        model.verbose = 0
-        model.optimize()
-        assert model.status == OptimizationStatus.OPTIMAL, "Max Cover Error: optimal solution not found."
-
-        # Solution
-        selected = [i for i in data.X if float(x[i].x) >= 0.99]
+    def _select_multi_level_optimization(self) -> List:
 
         if self.verbose:
-            print("=" * 40)
-            print("SET COVER OBJECTIVE:", model.objective_value)
-            print("=" * 40)
+            print("\nFIRST LEVEL: Solve unicost set covering")
+        num_content = self._num_cols
+        unicost = np.ones(num_content)
+        data = Data(cost=unicost, matrix=self.matrix)
+        unicost_selected = self._solve_set_cover(data)
+        if self.verbose:
+            print("\nSECOND LEVEL: Maximize diversity")
+        # Find clusters in the embedding space
+        k = len(unicost_selected)
+        diversity_cost = self._get_diversity_cost(k)
 
-        # Return
+        # Update the costs
+        data.cost = diversity_cost
+
+        # Solve set covering with diversity guidance
+        diversity_selected = self._solve_set_cover(data)
+
+        if self.verbose:
+            print("\nTHIRD LEVEL: Maximum Coverage of", self._num_rows, "rows by selecting",
+                  self.selection_size, "columns out of", len(diversity_selected))
+
+        # Among the most diverse columns with full coverage
+        # Select a subset of given max_cover_size
+        # While maximizing the coverage
+        zeros = np.zeros(self._num_cols)  # max coverage has a different objective function
+        data = Data(cost=zeros, matrix=self.matrix)
+        selected = self._solve_max_cover(data, diversity_selected)
+
+        if self.verbose:
+            print("\nOptimized Selection:", selected)
+            print("Selection size:", len(selected))
+
+        # Return solution
         return selected
 
-    def _solve_max_cover(self, data: Data, selected: List) -> List:
+"""
 
-        # If selected is given, limit the max_cover_size
-        if selected is not None and self.selection_size is not None and len(selected) > 0:
-            assert (self.selection_size <= len(selected)), "Max Cover Error: max_cover_size cannot exceed num selected"
+############################other functions###########################################
+"""
+def _solve_max_cover(self, data: Data, selected: List) -> List:
+    # If selected is given, limit the max_cover_size
+    if selected is not None and self.selection_size is not None and len(selected) > 0:
+        assert (self.selection_size <= len(selected)), "Max Cover Error: max_cover_size cannot exceed num selected"
 
-        # Model
-        model = Model("Max Cover Model")
+    # Model
+    model = Model("Max Cover Model")
 
-        # Variables
-        x = [model.add_var(var_type=BINARY) for _ in data.X]
-        is_row_covered = [model.add_var(var_type=BINARY) for _ in data.rows]
-        num_row_covered = model.add_var(var_type=INTEGER)
+    # Variables
+    x = [model.add_var(var_type=BINARY) for _ in data.X]
+    is_row_covered = [model.add_var(var_type=BINARY) for _ in data.rows]
+    num_row_covered = model.add_var(var_type=INTEGER)
 
-        # Constraint: Link between x and is_row_covered
-        for row in data.rows:
-            for i in data.X:
-                # if any selected column has the label, then the row would be covered
-                model.add_constr(data.matrix[row, i] * x[i] <= is_row_covered[row])
-            # total selected
-            model.add_constr(xsum(data.matrix[row, i] * x[i] for i in data.X) >= is_row_covered[row])
-
-        # Constraint: Link is_row_covered with num_row_covered
-        model.add_constr(xsum(is_row_covered[row] for row in data.rows) == num_row_covered)
-
-        # Constraint: If selected is given, discard columns that are not part of selection
+    # Constraint: Link between x and is_row_covered
+    for row in data.rows:
         for i in data.X:
-            if i not in selected:
-                model.add_constr(x[i] == 0)
+            # if any selected column has the label, then the row would be covered
+            model.add_constr(data.matrix[row, i] * x[i] <= is_row_covered[row])
+        # total selected
+        model.add_constr(xsum(data.matrix[row, i] * x[i] for i in data.X) >= is_row_covered[row])
 
-        # Constraint: limit number of selected to max_cover_size
-        model.add_constr(xsum(x[i] for i in data.X) <= self.selection_size)
+    # Constraint: Link is_row_covered with num_row_covered
+    model.add_constr(xsum(is_row_covered[row] for row in data.rows) == num_row_covered)
 
-        # Objective: maximize "row" coverage (not the whole coverage of 1s)
-        model.objective = maximize(xsum(is_row_covered[row] for row in data.rows))
+    # Constraint: If selected is given, discard columns that are not part of selection
+    for i in data.X:
+        if i not in selected:
+            model.add_constr(x[i] == 0)
 
-        # Solve
-        model.verbose = 0
-        model.optimize()
+    # Constraint: limit number of selected to max_cover_size
+    model.add_constr(xsum(x[i] for i in data.X) <= self.selection_size)
 
-        # Solution
-        selected = [i for i in data.X if float(x[i].x) >= 0.99]
+    # Objective: maximize "row" coverage (not the whole coverage of 1s)
+    model.objective = maximize(xsum(is_row_covered[row] for row in data.rows))
 
-        if self.verbose:
-            print("=" * 40)
-            print("OBJECTIVE:", model.objective_value)
-            print("NUM ROWS COVERED:", num_row_covered.x,
-                  "coverage: {:.2f}".format(num_row_covered.x / data.matrix.shape[0]))
-            print("SIZE:", len(selected),
-                  "reduction: {:.2f}".format((data.matrix.shape[1] - len(selected)) / data.matrix.shape[1]))
-            print("SELECTED:", selected)
-            print("STATUS:", model.status)
-            print("=" * 40)
+    # Solve
+    model.verbose = 0
+    model.optimize()
 
-        assert model.status == OptimizationStatus.OPTIMAL
+    # Solution
+    selected = [i for i in data.X if float(x[i].x) >= 0.99]
 
-        # Return
-        return selected
+    if self.verbose:
+        print("=" * 40)
+        print("OBJECTIVE:", model.objective_value)
+        print("NUM ROWS COVERED:", num_row_covered.x,
+              "coverage: {:.2f}".format(num_row_covered.x / data.matrix.shape[0]))
+        print("SIZE:", len(selected),
+              "reduction: {:.2f}".format((data.matrix.shape[1] - len(selected)) / data.matrix.shape[1]))
+        print("SELECTED:", selected)
+        print("STATUS:", model.status)
+        print("=" * 40)
 
-    def _get_closest_to_centroids(self, kmeans: KMeans) -> List:
+    assert model.status == OptimizationStatus.OPTIMAL
 
-        df = pd.DataFrame({"cluster": kmeans.labels_})
-        for c in np.unique(kmeans.labels_):
-            # Get indices of cluster
-            mask = df["cluster"] == c
-
-            # Squared error to cluster centroid
-            dist = np.sum((self.features[mask] - kmeans.cluster_centers_[c]) ** 2, axis=1)
-
-            # Create column in df
-            df.loc[mask, "dist_to_centroid"] = dist
-
-        kmeans_selected_df = df.loc[df.groupby('cluster', sort=False).dist_to_centroid.idxmin()]
-        kmeans_selected = kmeans_selected_df.index.values.tolist()
-
-        return kmeans_selected
-
-    def _get_num_row_covered(self, selected) -> int:
-        assert self.matrix is not None, "matrix is not initialized"
-
-        # Create indicator to count number of covered rows
-        row_covered = np.sum(self.matrix[:, selected], axis=1)
-
-        row_covered[row_covered > 0] = 1
-
-        num_row_covered = sum(row_covered)
-
-        return num_row_covered
-
-    @staticmethod
-    def _validate_args(selection_size):
-        if selection_size is not None:
-            if selection_size <= 0:
-                raise ValueError("Selection size must be greater than zero.")
+    # Return
+    return selected
 
 
+def _get_closest_to_centroids(self, kmeans: KMeans) -> List:
+    df = pd.DataFrame({"cluster": kmeans.labels_})
+    for c in np.unique(kmeans.labels_):
+        # Get indices of cluster
+        mask = df["cluster"] == c
+
+        # Squared error to cluster centroid
+        dist = np.sum((self.features[mask] - kmeans.cluster_centers_[c]) ** 2, axis=1)
+
+        # Create column in df
+        df.loc[mask, "dist_to_centroid"] = dist
+
+    kmeans_selected_df = df.loc[df.groupby('cluster', sort=False).dist_to_centroid.idxmin()]
+    kmeans_selected = kmeans_selected_df.index.values.tolist()
+
+    return kmeans_selected
+"""
+
+###########################plot selection#############################################
+"""
 def plot_selection(name: str, embedding: Union[List[List], np.ndarray], selected: List,
                    n_clusters: int = None, kmeans_n_init: int = 100, seed: int = 123456,
                    selection_c: str = 'blue', centroid_marker: str = 'x', centroid_c: str = 'r',
                    centroid_marker_s: int = 100, figsize: tuple = (10, 6), save_fig_name: str = None,
                    **kwargs) -> NoReturn:
-    """Make scatter plot of selected content using a 2D embedding of content.
-
-    Parameters
-    ----------
-    name: str
-        Name to include in plot title.
-    embedding: Union[List[List], np.ndarray]
-        2-D embedding for each content item created using T-SNE, UMAP or similar.
-    selected: List
-        Indices of selected content.
-    n_clusters: int, default=None
-        Number of K-means clusters to fit. Cluster centroids are overlayed on scatter plot if not None.
-    kmeans_n_init: int, default=100
-        Number of times the K-means algorithm will be run with different centroid seeds.
-    seed: int, default=123456
-        Random seed.
-    selection_c: str, default='blue'
-        Color of selected items.
-    centroid_marker: str, default='x'
-        Marker of cluster centroids.
-    centroid_c: str, default='r'
-        Color of cluster centroids markers.
-    centroid_marker_s: int, default=100
-        Size of cluster centroid markers.
-    figsize: tuple, default=(10, 6)
-        Size of figure.
-    save_fig_name: str, default=None
-        Path of saved figure.
-    **kwargs
-        Other parameters passed to ``matplotlib.plt.scatter``.
-
-    Returns
-    -------
-    ax : matplotlib.axes.Axes
-        The scatter plot with selection.
-    """
+    # Make scatter plot of selected content using a 2D embedding of content.
+    # 
+    # Parameters
+    # ----------
+    # name: str
+    #     Name to include in plot title.
+    # embedding: Union[List[List], np.ndarray]
+    #     2-D embedding for each content item created using T-SNE, UMAP or similar.
+    # selected: List
+    #     Indices of selected content.
+    # n_clusters: int, default=None
+    #     Number of K-means clusters to fit. Cluster centroids are overlayed on scatter plot if not None.
+    # kmeans_n_init: int, default=100
+    #     Number of times the K-means algorithm will be run with different centroid seeds.
+    # seed: int, default=123456
+    #     Random seed.
+    # selection_c: str, default='blue'
+    #     Color of selected items.
+    # centroid_marker: str, default='x'
+    #     Marker of cluster centroids.
+    # centroid_c: str, default='r'
+    #     Color of cluster centroids markers.
+    # centroid_marker_s: int, default=100
+    #     Size of cluster centroid markers.
+    # figsize: tuple, default=(10, 6)
+    #     Size of figure.
+    # save_fig_name: str, default=None
+    #     Path of saved figure.
+    # **kwargs
+    #     Other parameters passed to ``matplotlib.plt.scatter``.
+    # 
+    # Returns
+    # -------
+    # ax : matplotlib.axes.Axes
+    #     The scatter plot with selection.
+    # 
 
     fig, ax = plt.subplots(figsize=figsize)
     ax.set_title("PLOT: " + name + " SIZE: " + str(len(selected)) + " [blue: selected, crosses: centroids]")
@@ -641,51 +704,4 @@ def plot_selection(name: str, embedding: Union[List[List], np.ndarray], selected
         plt.savefig(save_fig_name)
 
     return ax
-
-
-# TODO not sure if this should use _BaseDispatcher or not. We can decide later
-class _TextBased(_BaseSupervisedSelector):
-    """
-    featrization and optimization are done in 'fit' function.
-    the 'transform' function is used to show the selected contents
-    """
-
-    def __init__(self, seed: int, num_features: Num,
-                 featurization_method: TextWiser, optimization_method: str, cost_metric: Optional[str] = None):
-        # Call constructor of parent class _BaseSupervisedSelector
-        super().__init__(seed)
-
-        self.num_features = num_features    # this could be int or float
-        self.featurization_method = featurization_method
-        self.optimization_method = optimization_method
-        self.cost_metric = cost_metric
-        self.content_selector = ContentSelector(selection_size=num_features, seed=123456, trials=100, verbose=True)
-
-    def fit(self, data: pd.DataFrame, labels: Union[pd.Series, pd.DataFrame]) -> NoReturn:
-
-        # Call fit method from parent class _BaseSupervisedSelector
-        super().fit(data, labels)
-
-        # Get the text columns dynamically
-        text_columns = [col for col in data.columns if col.startswith("item")]
-
-
-        selected_indicies = self.content_selector.run_content_selection(data, labels, self.featurization_method,
-                                                                        self.optimization_method, self.cost_metric)
-
-        # Only select the features that were selected during fit
-        selected_features = [col for i, col in enumerate(text_columns) if i in selected_indicies]
-        self.selected_features_ = selected_features
-
-
-
-    def transform(self, data: pd.DataFrame) -> pd.DataFrame:
-
-        # print the selected features
-        feature_selected = data[self.selected_features_]
-        print("Selected items:")
-        for i, contents in enumerate(feature_selected):
-            print(f"content{i+1}: {contents}")
-        print("=" * 40)
-
-        return feature_selected
+"""
