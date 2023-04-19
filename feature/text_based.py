@@ -2,7 +2,7 @@
 # Copyright FMR LLC <opensource@fidelity.com>
 # SPDX-License-Identifier: GNU GPLv3
 
-from typing import NoReturn, Union, List
+from typing import NoReturn, Union, List, Tuple
 import random
 import pandas as pd
 import numpy as np
@@ -223,17 +223,7 @@ class ContentSelector:
 
     def _select_greedy(self) -> List:
         if self.selection_size is None:
-            if self.cost_metric == "unicost":
-                unicost = np.ones(self._num_cols)
-                data = Data(cost=unicost, matrix=self.matrix)
-                unicost_selected = self._solve_set_cover(data)
-                selected_size = len(unicost_selected)
-            else:
-                diversity_cost = self._get_diversity_cost(self._num_cols)
-                data = Data(cost=diversity_cost, matrix=self.matrix)
-                diversity_selected = self._solve_set_cover(data)
-                selected_size = len(diversity_selected)
-                unicost = diversity_cost
+            unicost, selected_size = self._get_selected_size()
         else:
             if self.cost_metric == "unicost":
                 unicost = np.ones(self._num_cols)
@@ -309,16 +299,7 @@ class ContentSelector:
         best_covered = 0
 
         if self.selection_size is None:
-            if self.cost_metric == "unicost":
-                unicost = np.ones(self._num_cols)
-                data = Data(cost=unicost, matrix=self.matrix)
-                unicost_selected = self._solve_set_cover(data)
-                selected_size = len(unicost_selected)
-            else:
-                diversity_cost = self._get_diversity_cost(self._num_cols)
-                data = Data(cost=diversity_cost, matrix=self.matrix)
-                diversity_selected = self._solve_set_cover(data)
-                selected_size = len(diversity_selected)
+            unicost, selected_size = self._get_selected_size()
         else:
             selected_size = self.selection_size
 
@@ -431,6 +412,20 @@ class ContentSelector:
         num_row_covered = sum(row_covered)
 
         return num_row_covered
+
+    def _get_selected_size(self) -> Tuple[np.ndarray, int]:
+        if self.cost_metric == "unicost":
+            unicost = np.ones(self._num_cols)
+            data = Data(cost=unicost, matrix=self.matrix)
+            unicost_selected = self._solve_set_cover(data)
+            selected_size = len(unicost_selected)
+        else:
+            diversity_cost = self._get_diversity_cost(self._num_cols)
+            data = Data(cost=diversity_cost, matrix=self.matrix)
+            diversity_selected = self._solve_set_cover(data)
+            selected_size = len(diversity_selected)
+            unicost = diversity_cost
+        return unicost, selected_size
 
     @staticmethod
     def _validate_args(selection_size):
