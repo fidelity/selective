@@ -48,7 +48,7 @@ print("Scores:", list(selector.get_absolute_scores()))
 |    [Statistical Analysis](https://scikit-learn.org/stable/modules/feature_selection.html#univariate-feature-selection)     |                                                                                                             [ANOVA F-test Classification](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.f_classif.html) <br> [F-value Regression](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.f_regression.html) <br> [Chi-Square](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.chi2.html) <br> [Mutual Information Classification](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.mutual_info_classif.html) <br> [Variance Inflation Factor](https://www.statsmodels.org/stable/generated/statsmodels.stats.outliers_influence.variance_inflation_factor.html)                                                                                                              |
 |                             [Linear Methods](https://en.wikipedia.org/wiki/Linear_regression)                              |                                                                                                   [Linear Regression](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html?highlight=linear%20regression#sklearn.linear_model.LinearRegression) <br> [Logistic Regression](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html?highlight=logistic%20regression#sklearn.linear_model.LogisticRegression) <br> [Lasso Regularization](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html#sklearn.linear_model.Lasso) <br> [Ridge Regularization](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html#sklearn.linear_model.Ridge) <br>                                                                                                    |
 |                          [Tree-based Methods](https://scikit-learn.org/stable/modules/tree.html)                           | [Decision Tree](https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeClassifier.html#sklearn.tree.DecisionTreeClassifier) <br> [Random Forest](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html?highlight=random%20forest#sklearn.ensemble.RandomForestClassifier) <br> [Extra Trees Classifier](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.ExtraTreesClassifier.html) <br> [XGBoost](https://xgboost.readthedocs.io/en/latest/) <br> [LightGBM](https://lightgbm.readthedocs.io/en/latest/) <br> [AdaBoost](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.AdaBoostClassifier.html) <br> [CatBoost](https://github.com/catboost)<br> [Gradient Boosting Tree](http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingClassifier.html) <br> |
-|  [Text-based Methods](https://link.springer.com/chapter/10.1007/978-3-030-78230-6_27)  |                                                                                                                                                                                                                                                                                                                                                [TextWiser Featurization Method](https://github.com/fidelity/textwiser) <br> `optimization_method = ["exact", "greedy", "kmeans", "random"]` <br> `cost_metric = ["unicost", "diverse"]`                                                                                                                                                                                                                                                                                                                                                 |
+|  [Text-based Methods](https://link.springer.com/chapter/10.1007/978-3-030-78230-6_27)  |                                                                                                                                                                                                                                                                                                                                               [featurization_method = TextWiser](https://github.com/fidelity/textwiser) <br> `optimization_method = ["exact", "greedy", "kmeans", "random"]` <br> `cost_metric = ["unicost", "diverse"]`                                                                                                                                                                                                                                                                                                                                               |
 
 
 
@@ -104,6 +104,67 @@ stats_df = calculate_statistics(score_df, selected_df)
 print(stats_df)
 ```
 
+## Example of Text-based Methods
+The **TestBased** selection method can be used to select the reviews that most representative of the overall sentiment
+of a dataset of customer reviews by finding the most informative reviews.
+
+The number of selected reviews can be a user input or can be defined by solving
+a [set cover problem](https://en.wikipedia.org/wiki/Set_cover_problem) to find minimum set of reviews with full 
+coverage.
+
+### Input
+* We represent the dataset as a pandas DataFrame with 5 reviews (each review is a feature, 
+and each row represents a feature)
+* We also have a corresponding labels DataFrame, which is a 5x5 matrix where each column represents a review. 
+* TextBased parameters:
+  - *num_features*: An integer representing the number of text features to be used in the selection process. 
+  - *featurization_method*: A text embedding method to transform the text features into numerical vectors using 
+    [TextWiser](https://github.com/fidelity/textwiser). 
+  - *optimization_method*: The optimization method used to select the subset of items (default sets as "exact"). 
+  - *cost_metric*: The cost metric used to evaluate the quality of the selected subset of items 
+    (default sets as "diverse").
+  - *trials*: The number of times to run the selection process (default sets as 10).
+
+
+```python
+import pandas as pd
+from feature.selector import Selective, SelectionMethod
+from tests.test_base import BaseTest
+from textwiser import TextWiser, Embedding, Transformation
+
+# Data
+reviews = pd.DataFrame({
+    "review1": ["This product is terrible. I would not recommend it."],
+    "review2": ["I am very happy with my purchase. This product exceeded my expectations."],
+    "review3": ["I think this product is okay, but it could be better."],
+    "review4": ["This product is great for the price. I would definitely recommend it."],
+    "review5": ["This product is a complete disappointment."]
+})
+
+# Labels
+labels = pd.DataFrame({
+    "review1": [1, 1, 0, 1, 0],
+    "review2": [1, 1, 0, 1, 0],
+    "review3": [0, 0, 1, 0, 0],
+    "review4": [1, 1, 0, 1, 0],
+    "review5": [0, 0, 0, 0, 1]
+})
+
+# TextBased selection
+method = SelectionMethod.TextBased(num_features=3, 
+                                   featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                                                  [Transformation.NMF(n_components=20),
+                                                                   Transformation.SVD(n_components=10)]),
+                                   optimization_method="greedy",
+                                   cost_metric="unicost",
+                                   trials=100)
+# Fit the method to the data and labels
+selector = Selective(method)
+selector.fit(reviews, labels)
+
+# Get the selected features
+selected_features = selector.transform(reviews)
+```
 
 ## Visualization
 

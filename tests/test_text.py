@@ -2,11 +2,10 @@
 # Copyright FMR LLC <opensource@fidelity.com>
 # SPDX-License-Identifier: GNU GPLv3
 import selectors
-import numpy as np
 import pandas as pd
 from feature.selector import Selective, SelectionMethod
 from test_base import BaseTest
-from textwiser import TextWiser, Embedding, PoolOptions, Transformation, WordOptions
+from textwiser import TextWiser, Embedding, Transformation
 
 
 class TestText(BaseTest):
