@@ -13,7 +13,6 @@ This module defines the public interface of the **Selective Library** for featur
 import multiprocessing as mp
 from time import time
 from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional, List
-
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -27,7 +26,6 @@ from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegress
 from sklearn.model_selection import KFold
 from textwiser import TextWiser, Embedding, Transformation
 from xgboost import XGBClassifier, XGBRegressor
-
 from feature.base import _BaseDispatcher, _BaseSupervisedSelector, _BaseUnsupervisedSelector
 from feature.correlation import _Correlation
 from feature.linear import _Linear
@@ -36,8 +34,6 @@ from feature.text_based import _TextBased
 from feature.tree_based import _TreeBased
 from feature.utils import Num, check_true, Constants, normalize_columns
 from feature.variance import _Variance
-
-
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -291,50 +287,47 @@ class SelectionMethod(NamedTuple):
         References:
         [1] Kadioglu et. al., Optimized Item Selection to Boost Exploration for Recommender Systems, CPAIOR'21
 
-        The parameters corresponding to the methods in the paper [1]
-        random:
-            trails, seed, verbose
-            * random(t=max_num_features): num_features
-            * random(t=unicost()): num_features=None, cost_metric
-            * random(t=diverse()): num_features=None, featurization_method=TextWiser, cost_metric
-        kmeans:
-        greedy:
-        unicost:
-        diverse:
-        max_cover:
-
         Randomness:
         Behavior for #TODO methods is non-deterministic, depends on seed.
 
         Attributes
         ----------
         num_features : Num, optional
-            * If num_feature is integer value, select max_num_features.
+            * If num_feature is integer value, select num_features.
             * If num_feature is None, num_features defines by solving a set cover problem using unicost or diverse
             The algorithm might choose a less number of features depending on other parameters.
 
         featurization_method :
-            TextWiser object to featurize items in X_textual (it is named data in test and this method does not
+            TextWiser object to featurize items/features in X_textual (it is named data in test and this method does not
             have impact on the following options:
-                - Random optimization with num_features = max_num_features
-                - Greedy optimization with unicost as cost_metric
+                - Random optimization with num_features = num_features and cost_metric = "diverse"
+                - Random optimization with num_features = num_features or None and cost_metric = "unicost"
+                - Greedy optimization with num_features = num_features or None and cost_metric = "unicost"
 
         optimization_method : str, optional
-            * random: This method finds a random solution by selecting a random set of items.
-                           The number of selected times (num_features = t):
-                                - t = maximum number of features defines by user.
-                                      The cost_metric input argument needs to ignore in this case.
+            * random: This method finds a random solution by performing a random selection of items/features from
+            the dataset of size selected_size without repetition for a fixed number of trials.
+                           The number of selected features (num_features = t):
+                                - t = number of features defined by user.
+                                      The cost_metric input argument is ignored in this case. It means the result of
+                                      setting cost_metric equal to either unicost or diverse will be the same.
                                 - t = None: the number of feature computed by solving a set cover problem with
-                                      cost metrics (unicost or diverse)
-            * exact: This method finds the optimum solution using the Python-MIP package to solve a set cover.
-            * greedy: This method finds a greedy solution by adding items step by step
-                      using a greedy heuristic that covers the most labels.
-                      The text featurization uses to implement diverse cost metric.
+                                      given cost metrics (unicost or diverse).
+
+            * greedy: This method finds a greedy solution by adding items step by step using a greedy heuristic
+                      that covers the most labels.
+                      The number of selected features (num_features = t):
+                                - t = number of features defined by user.
+                                      given cost metrics (unicost or diverse).
+                                - t = None: the number of feature computed by solving a set cover problem with
+                                      given cost metrics (unicost or diverse).
+
             * kmeans: This method clusters the text featurization space into k clusters
-                      where k is either the solution of the exact unicost selection, or,
+                      where k is either the solution of the exact unicost/diverse selection, or,
                       the given num_features. Then, items close the centroids are selected
                       kmeans does not need cost metrics.
-           * max_cover: This method find the solution based on the multi-level optimization in the paper [1].
+                      
+           * exact: This method find the solution based on the multi-level optimization in the paper [1].
                         num_feature must be an integer for third optimization level (solving max cover).
 
         cost_metric : str, optional;
@@ -345,13 +338,16 @@ class SelectionMethod(NamedTuple):
                        The centroids are found by clustering the text featurization space into k-clusters,
                        where k is either the solution of the exact unicost selection, or,
                        the given num_features.
+
+       trials: int;
+            The number of random trials to perform. Defaults to 1.
         """
         # Defualt values
         num_features: Union[int, None]
         featurization_method: TextWiser = TextWiser(Embedding.TfIdf(min_df=10), Transformation.NMF(n_components=30))
-        optimization_method: str = "random"
-        cost_metric: Optional[str] = None
-
+        optimization_method: str = "exact"
+        cost_metric: str = "diverse"
+        trials: int = 10
 
         def _validate(self):
             if self.num_features is not None:
@@ -368,6 +364,9 @@ class SelectionMethod(NamedTuple):
 
             check_true(self.cost_metric in ["unicost", "diverse", None],
                        ValueError("Cost metric can only be unicost or diverse."))
+
+            check_true(isinstance(self.trials, int) and self.trials > 0,
+                       ValueError("Number of trials must be a positive integer!"))
 
     class Variance(NamedTuple):
         """
@@ -484,7 +483,8 @@ class Selective:
         elif isinstance(selection_method, SelectionMethod.TextBased):
             self._imp = _TextBased(self.seed, self.selection_method.num_features,
                                    self.selection_method.featurization_method,
-                                   self.selection_method.optimization_method, self.selection_method.cost_metric)
+                                   self.selection_method.optimization_method, self.selection_method.cost_metric,
+                                   self.selection_method.trials)
         elif isinstance(selection_method, SelectionMethod.Statistical):
             self._imp = _Statistical(self.seed, self.selection_method.num_features, self.selection_method.method)
         elif isinstance(selection_method, SelectionMethod.Variance):
