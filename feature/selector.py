@@ -309,8 +309,8 @@ class SelectionMethod(NamedTuple):
             the dataset of size selected_size without repetition for a fixed number of trials.
                            The number of selected features (num_features = t):
                                 - t = number of features defined by user.
-                                      The cost_metric input argument is ignored in this case. It means the result of
-                                      setting cost_metric equal to either unicost or diverse will be the same.
+                                      The cost_metric input argument can be ignored in this case. It means the
+                                      result of setting cost_metric equal to either unicost or diverse will be the same.
                                 - t = None: the number of feature computed by solving a set cover problem with
                                       given cost metrics (unicost or diverse).
 
@@ -324,8 +324,14 @@ class SelectionMethod(NamedTuple):
 
             * kmeans: This method clusters the text featurization space into k clusters
                       where k is either the solution of the exact unicost/diverse selection, or,
-                      the given num_features. Then, items close the centroids are selected
+                      the given num_features. Then, items close to the centroids are selected.
                       kmeans does not need cost metrics.
+                      The number of selected features (num_features = t):
+                                - t = number of features defined by user.
+                                      The cost_metric input argument can be ignored in this case. It means the result
+                                      does not depend on the cost metric.
+                                - t = None: the number of feature computed by solving a set cover problem with
+                                      given cost metrics (unicost or diverse).
                       
            * exact: This method find the solution based on the multi-level optimization in the paper [1].
                         num_feature must be an integer for third optimization level (solving max cover).
@@ -348,6 +354,8 @@ class SelectionMethod(NamedTuple):
         optimization_method: str = "exact"
         cost_metric: str = "diverse"
         trials: int = 10
+        # Set default seed (ignore if it is required)
+        seed: int = 123456
 
         def _validate(self):
             if self.num_features is not None:

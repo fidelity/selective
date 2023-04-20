@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright FMR LLC <opensource@fidelity.com>
 # SPDX-License-Identifier: GNU GPLv3
+import random
 import selectors
 import pandas as pd
 from feature.selector import Selective, SelectionMethod
@@ -27,9 +28,9 @@ class TestText(BaseTest):
                                "item4": [0, 1, 1, 0, 1], "item5": [0, 1, 0, 0, 1]})
 
         method_unicost = SelectionMethod.TextBased(num_features=3,
-                                           optimization_method="random",
-                                           cost_metric="unicost",
-                                           trials=1)
+                                                   optimization_method="random",
+                                                   cost_metric="unicost",
+                                                   trials=1)
 
         method_diverse = SelectionMethod.TextBased(num_features=3,
                                                    optimization_method="random",
@@ -101,9 +102,7 @@ class TestText(BaseTest):
         selected_features = selector.transform(data)
 
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-
         self.assertEqual(selected_features.shape[0], data.shape[0])
-
         if method.num_features is None:
             pass
         else:
@@ -131,11 +130,8 @@ class TestText(BaseTest):
         selected_features = selector.transform(data)
 
         assert selector.selection_method.trials == 10
-
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-
         self.assertEqual(selected_features.shape[0], data.shape[0])
-
         if method.num_features is None:
             pass
         else:
@@ -160,13 +156,9 @@ class TestText(BaseTest):
         selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
-
         assert selector.selection_method.trials == 10
-
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-
         self.assertEqual(selected_features.shape[0], data.shape[0])
-
         if method.num_features is None:
             pass
         else:
@@ -190,11 +182,8 @@ class TestText(BaseTest):
         selected_features = selector.transform(data)
 
         assert selector.selection_method.trials == 10
-
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-
         self.assertEqual(selected_features.shape[0], data.shape[0])
-
         if method.num_features is None:
             pass
         else:
@@ -220,15 +209,101 @@ class TestText(BaseTest):
         selected_features = selector.transform(data)
 
         assert selector.selection_method.trials == 10
-
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-
         self.assertEqual(selected_features.shape[0], data.shape[0])
-
         if method.num_features is None:
             pass
         else:
             self.assertEqual(selected_features.shape[1], 2)
+
+    ################################################
+    ########## Tests for kmeans selection ##########
+    ################################################
+    def test_text_based_kmeans_num_feature(self):
+        data = pd.DataFrame(
+            {"item1": ["this is a sentences with more common words and more words to increase frequency"],
+             "item2": ["second one in list of more frequent sentences with some repeated words"],
+             "item3": ["a word for more complexity and longer length"],
+             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
+             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
+        labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
+                               "item4": [0, 1, 1, 0, 1], "item5": [0, 1, 0, 0, 1]})
+
+        method = SelectionMethod.TextBased(num_features=3,
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                                                          [Transformation.NMF(n_components=20),
+                                                                           Transformation.SVD(n_components=10)]),
+                                           optimization_method="kmeans",
+                                           cost_metric="unicost")  # Default is diverse
+
+        selector= Selective(method)
+        selector.fit(data, labels)
+        selected_features = selector.transform(data)
+
+        assert selector.selection_method.trials == 10
+        self.assertTrue(isinstance(selected_features, pd.DataFrame))
+        self.assertEqual(selected_features.shape[0], data.shape[0])
+        if method.num_features is None:
+            pass
+        else:
+            self.assertEqual(selected_features.shape[1], 3)
+
+    def test_text_based_kmeans_unicost(self):
+        data = pd.DataFrame(
+            {"item1": ["this is a sentences with more common words and more words to increase frequency"],
+             "item2": ["second one in list of more frequent sentences with some repeated words"],
+             "item3": ["a word for more complexity and longer length"],
+             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
+             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
+        labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
+                               "item4": [0, 1, 1, 0, 1], "item5": [0, 1, 0, 0, 1]})
+
+        method = SelectionMethod.TextBased(num_features=None,
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                                                          [Transformation.NMF(n_components=30),
+                                                                           Transformation.SVD(n_components=10)]),
+                                           optimization_method="kmeans",
+                                           cost_metric="unicost")  # Default cost metric is diverse
+
+        selector= Selective(method)
+        selector.fit(data, labels)
+        selected_features = selector.transform(data)
+
+        assert selector.selection_method.trials == 10
+        self.assertTrue(isinstance(selected_features, pd.DataFrame))
+        self.assertEqual(selected_features.shape[0], data.shape[0])
+        if method.num_features is None:
+            pass
+        else:
+            self.assertEqual(selected_features.shape[1], 3)
+
+    def test_text_based_kmeans_diverse(self):
+        data = pd.DataFrame(
+            {"item1": ["this is a sentences with more common words and more words to increase frequency"],
+             "item2": ["second one in list of more frequent sentences with some repeated words"],
+             "item3": ["a word for more complexity and longer length"],
+             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
+             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
+        labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
+                               "item4": [0, 1, 1, 0, 1], "item5": [0, 1, 0, 0, 1]})
+
+        method = SelectionMethod.TextBased(num_features=None,
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                                                          [Transformation.NMF(n_components=30),
+                                                                           Transformation.SVD(n_components=10)]),
+                                           optimization_method="kmeans")  # Default cost metric is diverse
+
+        selector= Selective(method)
+        selector.fit(data, labels)
+        selected_features = selector.transform(data)
+
+        assert selector.selection_method.trials == 10
+        self.assertTrue(isinstance(selected_features, pd.DataFrame))
+        self.assertEqual(selected_features.shape[0], data.shape[0])
+        if method.num_features is None:
+            pass
+        else:
+            self.assertEqual(selected_features.shape[1], 3)
 
     ################################################
     ########## Verify invalid tests  ###############

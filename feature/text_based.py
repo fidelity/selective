@@ -201,14 +201,17 @@ class ContentSelector:
         """
         self.matrix = categories.to_numpy()
         self._num_rows, self._num_cols = self.matrix.shape
+        option_map = {
+            ("random", True, "diverse"): lambda: None,
+            ("random", False, "unicost"): lambda: None,
+            ("random", True, "unicost"): lambda: None,
+            ("greedy", False, "unicost"): lambda: None,
+            ("greedy", True, "unicost"): lambda: None
+        }
 
-        # Content feature (with TextWiser)
-        if optimization_method == "random" and selection_size is not None and cost_metric == "diverse":
-            pass
-        elif optimization_method == "random" and cost_metric == "unicost":
-            pass
-        elif optimization_method == "greedy" and cost_metric == "unicost":
-            pass
+        options = option_map.get((optimization_method, selection_size is not None, cost_metric))
+        if options:
+            options()
         else:
             feature_column = self.featurization_method.fit_transform(input_df)
             self.features = np.array([eval(l) if isinstance(l, str) else l for l in feature_column.tolist()])
@@ -220,6 +223,30 @@ class ContentSelector:
         if self.selection_size is not None:
             check_true(self.selection_size <= self._num_cols,
                        "Process Data Error: selection_size cannot exceed num columns")
+
+    def _select_kmeans(self) -> List:
+        if self.selection_size is None:
+            unicost, selected_size = self._get_selected_size()
+
+        else:
+            selected_size = self.selection_size
+
+        kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
+        kmeans.fit(self.features)
+        selected = self._get_closest_to_centroids(kmeans)
+        num_row_covered = self._get_num_row_covered(selected)
+
+        if self.verbose:
+            print("\nKMEANS SELECTION:", selected_size, " columns to cover rows", self._num_rows)
+            print("=" * 40)
+            print("SIZE:", len(selected), "reduction: {:.2f}".format((self._num_cols - len(selected)) / self._num_cols))
+            print("SELECTED:", selected)
+            print("NUM ROWS COVERED:", num_row_covered, "coverage: {:.2f}".format(num_row_covered / self._num_rows))
+            print("STATUS: KMEANS")
+            print("Cost Metric:", self.cost_metric)
+            print("=" * 40)
+
+        return selected
 
     def _select_greedy(self) -> List:
         if self.selection_size is None:
@@ -331,10 +358,7 @@ class ContentSelector:
             print("NUM (AVG) ROWS COVERED:",
                   num_row_covered, "coverage: {:.2f}".format(coverage))
             print("STATUS: RANDOM")
-            if self.cost_metric is not None and self.selection_size is None:
-                print("Cost Metric:", self.cost_metric)
-            else:
-                print("Cost Metric: None")
+            print("Cost Metric:", self.cost_metric)
             print("=" * 40)
         return best_selected
 
@@ -427,6 +451,23 @@ class ContentSelector:
             unicost = diversity_cost
         return unicost, selected_size
 
+    def _get_closest_to_centroids(self, kmeans: KMeans) -> List:
+        df = pd.DataFrame({"cluster": kmeans.labels_})
+        for c in np.unique(kmeans.labels_):
+            # Get indices of cluster
+            mask = df["cluster"] == c
+
+            # Squared error to cluster centroid
+            dist = np.sum((self.features[mask] - kmeans.cluster_centers_[c]) ** 2, axis=1)
+
+            # Create column in df
+            df.loc[mask, "dist_to_centroid"] = dist
+
+        kmeans_selected_df = df.loc[df.groupby('cluster', sort=False).dist_to_centroid.idxmin()]
+        kmeans_selected = kmeans_selected_df.index.values.tolist()
+
+        return kmeans_selected
+
     @staticmethod
     def _validate_args(selection_size):
         if selection_size is not None:
@@ -489,32 +530,6 @@ class _TextBased(_BaseSupervisedSelector):
 
 ################other optimization method (class ContentSelector)####################
 """
-    def _select_kmeans(self) -> List:
-        if self.selection_size is None:
-            unicost = np.ones(self._num_cols)
-            data = Data(cost=unicost, matrix=self.matrix)
-            unicost_selected = self._solve_set_cover(data)
-            selected_size = len(unicost_selected)
-        else:
-            selected_size = self.selection_size
-
-        kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
-        kmeans.fit(self.features)
-        selected = self._get_closest_to_centroids(kmeans)
-        num_row_covered = self._get_num_row_covered(selected)
-
-        if self.verbose:
-            print("\nKMEANS SELECTION:", selected_size, " columns to cover rows", self._num_rows)
-            print("=" * 40)
-            print("SIZE:", len(selected), "reduction: {:.2f}".format((self._num_cols - len(selected)) / self._num_cols))
-            print("SELECTED:", selected)
-            print("NUM ROWS COVERED:", num_row_covered, "coverage: {:.2f}".format(num_row_covered / self._num_rows))
-            print("STATUS: KMEANS")
-            print("=" * 40)
-
-        return selected
-
-
     def _select_exact(self) -> List:
 
         if self.cost_metric == "diverse":
@@ -641,24 +656,6 @@ def _solve_max_cover(self, data: Data, selected: List) -> List:
 
     # Return
     return selected
-
-
-def _get_closest_to_centroids(self, kmeans: KMeans) -> List:
-    df = pd.DataFrame({"cluster": kmeans.labels_})
-    for c in np.unique(kmeans.labels_):
-        # Get indices of cluster
-        mask = df["cluster"] == c
-
-        # Squared error to cluster centroid
-        dist = np.sum((self.features[mask] - kmeans.cluster_centers_[c]) ** 2, axis=1)
-
-        # Create column in df
-        df.loc[mask, "dist_to_centroid"] = dist
-
-    kmeans_selected_df = df.loc[df.groupby('cluster', sort=False).dist_to_centroid.idxmin()]
-    kmeans_selected = kmeans_selected_df.index.values.tolist()
-
-    return kmeans_selected
 """
 
 ###########################plot selection#############################################
