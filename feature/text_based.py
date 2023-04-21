@@ -206,7 +206,9 @@ class ContentSelector:
             ("random", False, "unicost"): lambda: None,
             ("random", True, "unicost"): lambda: None,
             ("greedy", False, "unicost"): lambda: None,
-            ("greedy", True, "unicost"): lambda: None
+            ("greedy", True, "unicost"): lambda: None,
+            ("exact", True, "unicost"): lambda: None,
+            ("exact", False, "unicost"): lambda: None
         }
 
         options = option_map.get((optimization_method, selection_size is not None, cost_metric))
@@ -223,6 +225,41 @@ class ContentSelector:
         if self.selection_size is not None:
             check_true(self.selection_size <= self._num_cols,
                        "Process Data Error: selection_size cannot exceed num columns")
+
+    def _select_multi_level_optimization(self) -> List:
+        unicost = np.ones(self._num_cols)
+        if self.selection_size is None:
+            if self.cost_metric == "unicost":
+                unicost_selected = self._solve_set_cover_cost_option(unicost)
+                selected = unicost_selected
+            else:
+                unicost_selected = self._solve_set_cover_cost_option(unicost)
+                k_unicost = len(unicost_selected)
+                diversity_cost = self._get_diversity_cost(k_unicost)
+                diversity_selected = self._solve_set_cover_cost_option(diversity_cost)
+                selected = diversity_selected
+
+        else:
+            if self.cost_metric == "unicost":
+                selected = self._solve_set_cover_cost_option(unicost)
+                cost = unicost
+                k = len(selected)
+            else:
+                unicost_selected = self._solve_set_cover_cost_option(unicost)
+                k_unicost = len(unicost_selected)
+                cost = self._get_diversity_cost(k_unicost)
+                selected = self._solve_set_cover_cost_option(cost)
+                k = len(selected)
+
+            if self.selection_size < k:
+                data = Data(cost=cost, matrix=self.matrix)
+                selected = self._solve_max_cover(data, selected)
+                k = len(selected)
+            else:
+                pass
+
+        # Return solution
+        return selected
 
     def _select_kmeans(self) -> List:
         if self.selection_size is None:
@@ -388,9 +425,16 @@ class ContentSelector:
         if self.verbose:
             print("=" * 40)
             print("SET COVER OBJECTIVE:", model.objective_value)
+            print("SELECTED:", selected)
+            print("STATUS:", model.status)
             print("=" * 40)
 
         # Return
+        return selected
+
+    def _solve_set_cover_cost_option(self, cost: np.ndarray) -> List:
+        data = Data(cost=cost, matrix=self.matrix)
+        selected = self._solve_set_cover(data)
         return selected
 
     def _get_diversity_cost(self, selected_size: int) -> List[float]:
@@ -468,6 +512,64 @@ class ContentSelector:
 
         return kmeans_selected
 
+    def _solve_max_cover(self, data: Data, selected: List) -> List:
+        # If selected is given, limit the max_cover_size
+        if selected is not None and self.selection_size is not None and len(selected) > 0:
+            assert (self.selection_size <= len(selected)), "Max Cover Error: max_cover_size cannot exceed num selected"
+
+        # Model
+        model = Model("Max Cover Model")
+
+        # Variables
+        x = [model.add_var(var_type=BINARY) for _ in data.X]
+        is_row_covered = [model.add_var(var_type=BINARY) for _ in data.rows]
+        num_row_covered = model.add_var(var_type=INTEGER)
+
+        # Constraint: Link between x and is_row_covered
+        for row in data.rows:
+            for i in data.X:
+                # if any selected column has the label, then the row would be covered
+                model.add_constr(data.matrix[row, i] * x[i] <= is_row_covered[row])
+            # total selected
+            model.add_constr(xsum(data.matrix[row, i] * x[i] for i in data.X) >= is_row_covered[row])
+
+        # Constraint: Link is_row_covered with num_row_covered
+        model.add_constr(xsum(is_row_covered[row] for row in data.rows) == num_row_covered)
+
+        # Constraint: If selected is given, discard columns that are not part of selection
+        for i in data.X:
+            if i not in selected:
+                model.add_constr(x[i] == 0)
+
+        # Constraint: limit number of selected to max_cover_size
+        model.add_constr(xsum(x[i] for i in data.X) <= self.selection_size)
+
+        # Objective: maximize "row" coverage (not the whole coverage of 1s)
+        model.objective = maximize(xsum(is_row_covered[row] for row in data.rows))
+
+        # Solve
+        model.verbose = 0
+        model.optimize()
+
+        # Solution
+        selected = [i for i in data.X if float(x[i].x) >= 0.99]
+
+        if self.verbose:
+            print("=" * 40)
+            print("MAX COVER OBJECTIVE:", model.objective_value)
+            print("NUM ROWS COVERED:", num_row_covered.x,
+                  "coverage: {:.2f}".format(num_row_covered.x / data.matrix.shape[0]))
+            print("SIZE:", len(selected),
+                  "reduction: {:.2f}".format((data.matrix.shape[1] - len(selected)) / data.matrix.shape[1]))
+            print("SELECTED:", selected)
+            print("STATUS:", model.status)
+            print("=" * 40)
+
+        assert model.status == OptimizationStatus.OPTIMAL
+
+        # Return
+        return selected
+
     @staticmethod
     def _validate_args(selection_size):
         if selection_size is not None:
@@ -523,141 +625,6 @@ class _TextBased(_BaseSupervisedSelector):
         print("=" * 110)
 
         return feature_selected
-
-#####################################################################################
-#################Below functions will be added once they are required################
-#####################################################################################
-
-################other optimization method (class ContentSelector)####################
-"""
-    def _select_exact(self) -> List:
-
-        if self.cost_metric == "diverse":
-            unicost = np.zeros(self._num_cols)
-            k = len(unicost)
-            diversity_cost = self._get_diversity_cost(k)
-            unicost = diversity_cost
-        else:
-            unicost = np.ones(self._num_cols)
-
-        data = Data(cost=unicost, matrix=self.matrix)
-        selected = self._solve_set_cover(data)
-
-        num_row_covered = self._get_num_row_covered(selected)
-
-        if self.verbose:
-            print("=" * 40)
-            print("SIZE:", len(selected), "reduction: {:.2f}".format((self._num_cols - len(selected)) / self._num_cols))
-            print("SELECTED:", selected)
-            print("NUM ROWS COVERED:", num_row_covered, "coverage: {:.2f}".format(num_row_covered / self._num_rows))
-            print("STATUS: EXACT")
-            print("COST METRIC:", self.cost_metric)
-            print("=" * 40)
-
-        return selected
-
-
-    def _select_multi_level_optimization(self) -> List:
-
-        if self.verbose:
-            print("\nFIRST LEVEL: Solve unicost set covering")
-        num_content = self._num_cols
-        unicost = np.ones(num_content)
-        data = Data(cost=unicost, matrix=self.matrix)
-        unicost_selected = self._solve_set_cover(data)
-        if self.verbose:
-            print("\nSECOND LEVEL: Maximize diversity")
-        # Find clusters in the embedding space
-        k = len(unicost_selected)
-        diversity_cost = self._get_diversity_cost(k)
-
-        # Update the costs
-        data.cost = diversity_cost
-
-        # Solve set covering with diversity guidance
-        diversity_selected = self._solve_set_cover(data)
-
-        if self.verbose:
-            print("\nTHIRD LEVEL: Maximum Coverage of", self._num_rows, "rows by selecting",
-                  self.selection_size, "columns out of", len(diversity_selected))
-
-        # Among the most diverse columns with full coverage
-        # Select a subset of given max_cover_size
-        # While maximizing the coverage
-        zeros = np.zeros(self._num_cols)  # max coverage has a different objective function
-        data = Data(cost=zeros, matrix=self.matrix)
-        selected = self._solve_max_cover(data, diversity_selected)
-
-        if self.verbose:
-            print("\nOptimized Selection:", selected)
-            print("Selection size:", len(selected))
-
-        # Return solution
-        return selected
-
-"""
-
-############################other functions###########################################
-"""
-def _solve_max_cover(self, data: Data, selected: List) -> List:
-    # If selected is given, limit the max_cover_size
-    if selected is not None and self.selection_size is not None and len(selected) > 0:
-        assert (self.selection_size <= len(selected)), "Max Cover Error: max_cover_size cannot exceed num selected"
-
-    # Model
-    model = Model("Max Cover Model")
-
-    # Variables
-    x = [model.add_var(var_type=BINARY) for _ in data.X]
-    is_row_covered = [model.add_var(var_type=BINARY) for _ in data.rows]
-    num_row_covered = model.add_var(var_type=INTEGER)
-
-    # Constraint: Link between x and is_row_covered
-    for row in data.rows:
-        for i in data.X:
-            # if any selected column has the label, then the row would be covered
-            model.add_constr(data.matrix[row, i] * x[i] <= is_row_covered[row])
-        # total selected
-        model.add_constr(xsum(data.matrix[row, i] * x[i] for i in data.X) >= is_row_covered[row])
-
-    # Constraint: Link is_row_covered with num_row_covered
-    model.add_constr(xsum(is_row_covered[row] for row in data.rows) == num_row_covered)
-
-    # Constraint: If selected is given, discard columns that are not part of selection
-    for i in data.X:
-        if i not in selected:
-            model.add_constr(x[i] == 0)
-
-    # Constraint: limit number of selected to max_cover_size
-    model.add_constr(xsum(x[i] for i in data.X) <= self.selection_size)
-
-    # Objective: maximize "row" coverage (not the whole coverage of 1s)
-    model.objective = maximize(xsum(is_row_covered[row] for row in data.rows))
-
-    # Solve
-    model.verbose = 0
-    model.optimize()
-
-    # Solution
-    selected = [i for i in data.X if float(x[i].x) >= 0.99]
-
-    if self.verbose:
-        print("=" * 40)
-        print("OBJECTIVE:", model.objective_value)
-        print("NUM ROWS COVERED:", num_row_covered.x,
-              "coverage: {:.2f}".format(num_row_covered.x / data.matrix.shape[0]))
-        print("SIZE:", len(selected),
-              "reduction: {:.2f}".format((data.matrix.shape[1] - len(selected)) / data.matrix.shape[1]))
-        print("SELECTED:", selected)
-        print("STATUS:", model.status)
-        print("=" * 40)
-
-    assert model.status == OptimizationStatus.OPTIMAL
-
-    # Return
-    return selected
-"""
-
 ###########################plot selection#############################################
 """
 def plot_selection(name: str, embedding: Union[List[List], np.ndarray], selected: List,

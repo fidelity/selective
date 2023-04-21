@@ -305,6 +305,101 @@ class TestText(BaseTest):
         else:
             self.assertEqual(selected_features.shape[1], 3)
 
+    ###############################################
+    ########## Tests for exact selection ##########
+    ###############################################
+    def test_text_based_exact_unicost(self):
+        data = pd.DataFrame(
+            {"item1": ["this is a sentences with more common words and more words to increase frequency"],
+             "item2": ["second one in list of more frequent sentences with some repeated words"],
+             "item3": ["a word for more complexity and longer length"],
+             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
+             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
+        labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
+                               "item4": [0, 1, 1, 0, 0], "item5": [0, 1, 0, 0, 1]})
+
+        method = SelectionMethod.TextBased(num_features=None,
+                                           optimization_method="exact",
+                                           cost_metric="unicost")  # Default is diverse
+
+        selector= Selective(method)
+        selector.fit(data, labels)
+        selected_features = selector.transform(data)
+
+        assert selector.selection_method.trials == 10
+        self.assertTrue(isinstance(selected_features, pd.DataFrame))
+        self.assertEqual(selected_features.shape[0], data.shape[0])
+
+    def test_text_based_exact_num_feature_unicost(self):
+        data = pd.DataFrame(
+            {"item1": ["this is a sentences with more common words and more words to increase frequency"],
+             "item2": ["second one in list of more frequent sentences with some repeated words"],
+             "item3": ["a word for more complexity and longer length"],
+             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
+             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
+        labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
+                               "item4": [0, 1, 1, 0, 0], "item5": [0, 1, 0, 0, 1]})
+
+        method = SelectionMethod.TextBased(num_features=2,  # num_features is less than the solution of set cover
+                                           optimization_method="exact",
+                                           cost_metric="unicost")  # Default is diverse
+
+        selector= Selective(method)
+        selector.fit(data, labels)
+        selected_features = selector.transform(data)
+
+        assert selector.selection_method.trials == 10
+        self.assertTrue(isinstance(selected_features, pd.DataFrame))
+        self.assertEqual(selected_features.shape[0], data.shape[0])
+
+    def test_text_based_exact_diverse(self):
+        data = pd.DataFrame(
+            {"item1": ["this is a sentences with more common words and more words to increase frequency"],
+             "item2": ["second one in list of more frequent sentences with some repeated words"],
+             "item3": ["a word for more complexity and longer length"],
+             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
+             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
+        labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
+                               "item4": [0, 1, 1, 0, 0], "item5": [0, 1, 0, 0, 1]})
+
+        method = SelectionMethod.TextBased(num_features=None,
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                                                          [Transformation.NMF(n_components=20),
+                                                                           Transformation.SVD(n_components=10)]),
+                                           optimization_method="exact")  # Default cost metric is diverse
+
+        selector= Selective(method)
+        selector.fit(data, labels)
+        selected_features = selector.transform(data)
+
+        assert selector.selection_method.trials == 10
+        self.assertTrue(isinstance(selected_features, pd.DataFrame))
+        self.assertEqual(selected_features.shape[0], data.shape[0])
+
+    def test_text_based_exact_num_feature_diverse(self):
+        data = pd.DataFrame(
+            {"item1": ["this is a sentences with more common words and more words to increase frequency"],
+             "item2": ["second one in list of more frequent sentences with some repeated words"],
+             "item3": ["a word for more complexity and longer length"],
+             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
+             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
+        labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
+                               "item4": [0, 1, 1, 0, 0], "item5": [0, 1, 0, 0, 1]})
+
+        method = SelectionMethod.TextBased(num_features=2,  # num_features is less than the solution of set cover
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                                                          [Transformation.NMF(n_components=20),
+                                                                           Transformation.SVD(n_components=10)]),
+                                           optimization_method="exact")  # Default cost metric is diverse
+
+        selector = Selective(method)
+        selector.fit(data, labels)
+        selected_features = selector.transform(data)
+
+        assert selector.selection_method.trials == 10
+        self.assertTrue(isinstance(selected_features, pd.DataFrame))
+        self.assertEqual(selected_features.shape[0], data.shape[0])
+
     ################################################
     ########## Verify invalid tests  ###############
     ################################################
