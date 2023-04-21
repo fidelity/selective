@@ -238,7 +238,6 @@ class ContentSelector:
                 diversity_cost = self._get_diversity_cost(k_unicost)
                 diversity_selected = self._solve_set_cover_cost_option(diversity_cost)
                 selected = diversity_selected
-
         else:
             if self.cost_metric == "unicost":
                 selected = self._solve_set_cover_cost_option(unicost)

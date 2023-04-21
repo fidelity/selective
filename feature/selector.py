@@ -325,7 +325,6 @@ class SelectionMethod(NamedTuple):
             * kmeans: This method clusters the text featurization space into k clusters
                       where k is either the solution of the exact unicost/diverse selection, or,
                       the given num_features. Then, items close to the centroids are selected.
-                      kmeans does not need cost metrics.
                       The number of selected features (num_features = t):
                                 - t = number of features defined by user.
                                       The cost_metric input argument can be ignored in this case. It means the result
@@ -333,8 +332,25 @@ class SelectionMethod(NamedTuple):
                                 - t = None: the number of feature computed by solving a set cover problem with
                                       given cost metrics (unicost or diverse).
                       
-           * exact: This method find the solution based on the multi-level optimization in the paper [1].
-                        num_feature must be an integer for third optimization level (solving max cover).
+           * exact: This method finds the solution based on the multi-level optimization in the paper with four
+                    different settings depend on the number of selected features and cost metrics.
+                    The number of selected features (num_features = t):
+                                - t = number of features defined by user.
+                                    -- cost_metric = "unicost": solve the set cover problem with unicost. If the number
+                                     of selected features is greater than t, then a max cover problem is solved to
+                                     select the optimal subset of features that covers the maximum number of rows
+                                     while not exceeding the given t.
+                                    -- cost_metric = "diverse": solve the set cover problem with unicost. Compute
+                                     diversity cost for selected features using KMeans, then the diversity cost is used
+                                     to solve the second set cover problem to find most diverse features. If the number
+                                     of selected features is greater than t, then a max cover problem is solved to
+                                     select the optimal subset of features that covers the maximum number of rows
+                                     while not exceeding the given t.
+                                - t = None: the number of feature computed by solving a set cover problem.
+                                    -- cost_metric = "unicost": solve set cover problem with unicost.
+                                    -- cost_metric = "diverse": solve the set cover problem with unicost. Compute
+                                     diversity cost for selected features using KMeans, then the diversity cost is used
+                                     to solve the second set cover problem to find most diverse features.
 
         cost_metric : str, optional;
             * unicost: Each item/feature incurs a cost of one when included in the selection.
