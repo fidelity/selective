@@ -31,4 +31,3 @@ jobs:
           pip install -e .
           python3 -m unittest discover -v tests
           python3 setup.py install
-  

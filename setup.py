@@ -26,10 +26,10 @@ setuptools.setup(
     packages=setuptools.find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     classifiers=[
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Operating System :: OS Independent",
     ],
     project_urls={"Source": "https://github.com/fidelity/selective"},
     install_requires=required,
-    python_requires=">=3.6"
+    python_requires=">=3.7"
 )
