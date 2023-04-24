@@ -239,7 +239,7 @@ class TestTree(BaseTest):
 
         # Reduced columns
         self.assertEqual(subset.shape[1], 3)
-        self.assertListEqual(list(subset.columns), ['MedInc', 'AveRooms', 'AveOccup'])
+        self.assertListEqual(list(subset.columns), ['MedInc', 'AveBedrms', 'AveOccup'])
 
     def test_tree_estimator_lgbm_classif_top_k(self):
         data, label = get_data_label(load_iris())

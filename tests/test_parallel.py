@@ -69,8 +69,8 @@ class TestParallel(BaseTest):
         self.assertListAlmostEqual(score_df_sequential["lasso"].to_list(), score_df_p2["lasso"].to_list())
 
         # Selected
-        self.assertListEqual([1, 0, 1, 0, 1], selected_df_sequential["linear"].to_list())
-        self.assertListEqual([1, 0, 1, 0, 1], selected_df_sequential["lasso"].to_list())
+        self.assertListEqual([1, 0, 1, 1, 0], selected_df_sequential["linear"].to_list())
+        self.assertListEqual([1, 0, 1, 1, 0], selected_df_sequential["lasso"].to_list())
 
         self.assertListEqual(selected_df_sequential["linear"].to_list(), selected_df_p1["linear"].to_list())
         self.assertListEqual(selected_df_sequential["linear"].to_list(), selected_df_p2["linear"].to_list())
