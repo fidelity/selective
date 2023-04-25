@@ -11,9 +11,6 @@ from textwiser import TextWiser, Embedding, Transformation
 
 class TestText(BaseTest):
 
-    """
-        For details about test parameters see TextBased in Selector.py
-    """
     ################################################
     ########## Tests for random selection ##########
     ################################################
@@ -165,11 +162,12 @@ class TestText(BaseTest):
             self.assertEqual(selected_features.shape[1], 2)
 
     def test_text_based_greedy_unicost(self):
-        data = pd.DataFrame({"item1": ["this is a sentences with more common words and more words to increase frequency"],
-                             "item2": ["second one in list of more frequent sentences with some repeated words"],
-                             "item3": ["a word for more complexity and longer length"],
-                             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
-                             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
+        data = pd.DataFrame(
+            {"item1": ["this is a sentences with more common words and more words to increase frequency"],
+             "item2": ["second one in list of more frequent sentences with some repeated words"],
+             "item3": ["a word for more complexity and longer length"],
+             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
+             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
         labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
                                "item4": [0, 1, 1, 0, 1], "item5": [0, 1, 0, 0, 1]})
 
@@ -190,11 +188,12 @@ class TestText(BaseTest):
             self.assertEqual(selected_features.shape[1], 2)
 
     def test_text_based_greedy_diverse(self):
-        data = pd.DataFrame({"item1": ["this is a sentences with more common words and more words to increase frequency"],
-                             "item2": ["second one in list of more frequent sentences with some repeated words"],
-                             "item3": ["a word for more complexity and longer length"],
-                             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
-                             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
+        data = pd.DataFrame(
+            {"item1": ["this is a sentences with more common words and more words to increase frequency"],
+             "item2": ["second one in list of more frequent sentences with some repeated words"],
+             "item3": ["a word for more complexity and longer length"],
+             "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
+             "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
         labels = pd.DataFrame({"item1": [1, 0, 0, 1, 0], "item2": [0, 1, 0, 0, 0], "item3": [0, 0, 1, 0, 0],
                                "item4": [0, 0, 1, 0, 0], "item5": [0, 1, 0, 0, 1]})
 
@@ -236,7 +235,7 @@ class TestText(BaseTest):
                                            optimization_method="kmeans",
                                            cost_metric="unicost")  # Default is diverse
 
-        selector= Selective(method)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
@@ -265,7 +264,7 @@ class TestText(BaseTest):
                                            optimization_method="kmeans",
                                            cost_metric="unicost")  # Default cost metric is diverse
 
-        selector= Selective(method)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
@@ -293,7 +292,7 @@ class TestText(BaseTest):
                                                                            Transformation.SVD(n_components=10)]),
                                            optimization_method="kmeans")  # Default cost metric is diverse
 
-        selector= Selective(method)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
@@ -322,7 +321,7 @@ class TestText(BaseTest):
                                            optimization_method="exact",
                                            cost_metric="unicost")  # Default is diverse
 
-        selector= Selective(method)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
@@ -344,7 +343,7 @@ class TestText(BaseTest):
                                            optimization_method="exact",
                                            cost_metric="unicost")  # Default is diverse
 
-        selector= Selective(method)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
@@ -368,7 +367,7 @@ class TestText(BaseTest):
                                                                            Transformation.SVD(n_components=10)]),
                                            optimization_method="exact")  # Default cost metric is diverse
 
-        selector= Selective(method)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 

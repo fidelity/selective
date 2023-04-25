@@ -286,6 +286,7 @@ class SelectionMethod(NamedTuple):
 
         References:
         [1] Kadioglu et. al., Optimized Item Selection to Boost Exploration for Recommender Systems, CPAIOR'21
+        [2] Kleynhans et. al. Active Learning Meets Optimized Item Selection, DSO@IJCAI'21
 
         Randomness:
         Behavior for #TODO methods is non-deterministic, depends on seed.
@@ -364,18 +365,18 @@ class SelectionMethod(NamedTuple):
        trials: int;
             The number of random trials to perform. Defaults to 1.
         """
-        # Defualt values
+
+        # Default values
         num_features: Union[int, None]
         featurization_method: TextWiser = TextWiser(Embedding.TfIdf(min_df=10), Transformation.NMF(n_components=30))
         optimization_method: str = "exact"
         cost_metric: str = "diverse"
         trials: int = 10
-        # Set default seed (ignore if it is required)
-        seed: int = 123456
+        seed: int = Constants.default_seed
 
         def _validate(self):
             if self.num_features is not None:
-                check_true(isinstance(self.num_features, (int, float)), TypeError("Max num features must a number."))
+                check_true(isinstance(self.num_features, (int, float)), TypeError("Num features must a number."))
                 check_true(self.num_features > 0, ValueError("Num features must be greater than zero."))
                 if isinstance(self.num_features, float):
                     check_true(self.num_features <= 1, ValueError("Num features ratio must be between [0..1]."))
@@ -507,7 +508,8 @@ class Selective:
         elif isinstance(selection_method, SelectionMethod.TextBased):
             self._imp = _TextBased(self.seed, self.selection_method.num_features,
                                    self.selection_method.featurization_method,
-                                   self.selection_method.optimization_method, self.selection_method.cost_metric,
+                                   self.selection_method.optimization_method,
+                                   self.selection_method.cost_metric,
                                    self.selection_method.trials)
         elif isinstance(selection_method, SelectionMethod.Statistical):
             self._imp = _Statistical(self.seed, self.selection_method.num_features, self.selection_method.method)
@@ -516,7 +518,7 @@ class Selective:
         else:
             raise ValueError("Unknown Selection Method " + str(selection_method))
 
-    def fit(self, data: pd.DataFrame, labels: Optional[Union[pd.Series, pd.DataFrame]] = None) -> NoReturn:
+    def fit(self, data: pd.DataFrame, labels: Optional[pd.Series, pd.DataFrame] = None) -> NoReturn:
 
         # Validate
         self._validate_fit(data, labels)
@@ -542,7 +544,7 @@ class Selective:
         # Return transformed data
         return self._imp.transform(data)
 
-    def fit_transform(self, data: pd.DataFrame, labels: Optional[pd.Series] = None) -> pd.DataFrame:
+    def fit_transform(self, data: pd.DataFrame, labels: Optional[pd.Series, pd.DataFrame] = None) -> pd.DataFrame:
         self.fit(data, labels)
         return self.transform(data)
 

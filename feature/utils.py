@@ -78,7 +78,7 @@ def normalize_columns(df: pd.DataFrame):
     return df_normalized.fillna(0)
 
 
-def _process_df(input_df: pd.DataFrame, categories: List[str], feature_column: str, selection_size: int) \
+def _process_data(input_df: pd.DataFrame, categories: List[str], feature_column: str, selection_size: int) \
         -> Tuple[np.ndarray, np.ndarray]:
     # Get label for each row based on input categories
     labels_list = []

@@ -2,11 +2,15 @@
 
 
 # Selective: Feature Selection Library
-**Selective** is a white-box feature selection library that supports unsupervised and supervised selection methods for classification and regression tasks. 
+**Selective** is a white-box feature selection library that supports supervised and unsupervised selection methods for classification and regression tasks. 
+
+Selective also provides optimized item selection based on diversity of text embeddings (via [TextWiser](https://github.com/fidelity/textwiser)) and 
+the coverage of binary labels by solving a multi-objective optimization problem ([CPAIOR'21](https://link.springer.com/chapter/10.1007/978-3-030-78230-6_27), [DSO@IJCAI'22](https://arxiv.org/abs/2112.03105)). The approach showed to speed-up online experimentation significantly and boost recommender systems [NVIDIA GTC'22](https://www.youtube.com/watch?v=_v-B2nRy79w).  
 
 The library provides:
 
 * Simple to complex selection methods: Variance, Correlation, Statistical, Linear, Tree-based, or Customized.
+* Text based selection using text embedding diversity and metadata coverage.
 * Interoperable with data frames as the input.
 * Automated task detection. No need to know what feature selection method works with what machine learning task.
 * Benchmarking multiple selectors using cross-validation with built-in parallelization.
@@ -30,7 +34,6 @@ selector = Selective(SelectionMethod.Correlation(threshold=0.5, method="pearson"
 selector = Selective(SelectionMethod.Statistical(num_features=3, method="anova"))
 selector = Selective(SelectionMethod.Linear(num_features=3, regularization="none"))
 selector = Selective(SelectionMethod.TreeBased(num_features=3))
-selector = Selective(SelectionMethod.TextBased(num_features=3))
 
 # Feature reduction
 subset = selector.fit_transform(data, label)
@@ -48,7 +51,7 @@ print("Scores:", list(selector.get_absolute_scores()))
 |    [Statistical Analysis](https://scikit-learn.org/stable/modules/feature_selection.html#univariate-feature-selection)     |                                                                                                             [ANOVA F-test Classification](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.f_classif.html) <br> [F-value Regression](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.f_regression.html) <br> [Chi-Square](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.chi2.html) <br> [Mutual Information Classification](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.mutual_info_classif.html) <br> [Variance Inflation Factor](https://www.statsmodels.org/stable/generated/statsmodels.stats.outliers_influence.variance_inflation_factor.html)                                                                                                              |
 |                             [Linear Methods](https://en.wikipedia.org/wiki/Linear_regression)                              |                                                                                                   [Linear Regression](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html?highlight=linear%20regression#sklearn.linear_model.LinearRegression) <br> [Logistic Regression](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html?highlight=logistic%20regression#sklearn.linear_model.LogisticRegression) <br> [Lasso Regularization](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html#sklearn.linear_model.Lasso) <br> [Ridge Regularization](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html#sklearn.linear_model.Ridge) <br>                                                                                                    |
 |                          [Tree-based Methods](https://scikit-learn.org/stable/modules/tree.html)                           | [Decision Tree](https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeClassifier.html#sklearn.tree.DecisionTreeClassifier) <br> [Random Forest](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html?highlight=random%20forest#sklearn.ensemble.RandomForestClassifier) <br> [Extra Trees Classifier](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.ExtraTreesClassifier.html) <br> [XGBoost](https://xgboost.readthedocs.io/en/latest/) <br> [LightGBM](https://lightgbm.readthedocs.io/en/latest/) <br> [AdaBoost](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.AdaBoostClassifier.html) <br> [CatBoost](https://github.com/catboost)<br> [Gradient Boosting Tree](http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingClassifier.html) <br> |
-|  [Text-based Methods](https://link.springer.com/chapter/10.1007/978-3-030-78230-6_27)  |                                                                                                                                                                                                                                                                                                                                               [featurization_method = TextWiser](https://github.com/fidelity/textwiser) <br> `optimization_method = ["exact", "greedy", "kmeans", "random"]` <br> `cost_metric = ["unicost", "diverse"]`                                                                                                                                                                                                                                                                                                                                               |
+|  [Text-based Methods](https://link.springer.com/chapter/10.1007/978-3-030-78230-6_27)  |                                                                                                                                                                                                                                                                                                                                              `featurization_method` = [TextWiser](https://github.com/fidelity/textwiser) <br> `optimization_method = ["exact", "greedy", "kmeans", "random"]` <br> `cost_metric = ["unicost", "diverse"]`                                                                                                                                                                                                                                                                                                                                              |
 
 
 
@@ -104,13 +107,10 @@ stats_df = calculate_statistics(score_df, selected_df)
 print(stats_df)
 ```
 
-## Example of Text-based Methods
-The **TestBased** selection method can be used to select the reviews that most representative of the overall sentiment
-of a dataset of customer reviews by finding the most informative reviews.
+## Text-based Selective
+This example shows how to use text-based selection. 
 
-The number of selected reviews can be a user input or can be defined by solving
-a [set cover problem](https://en.wikipedia.org/wiki/Set_cover_problem) to find minimum set of reviews with full 
-coverage.
+In this scenario, we would like to select a subset of articles that is most diverse and covers a range of topics. 
 
 ### Input
 * We represent the dataset as a pandas DataFrame with 5 reviews (each review is a feature, 
@@ -127,43 +127,33 @@ and each row represents a feature)
 
 
 ```python
+# Import Selective and TextWiser
 import pandas as pd
 from feature.selector import Selective, SelectionMethod
-from tests.test_base import BaseTest
 from textwiser import TextWiser, Embedding, Transformation
 
-# Data
-reviews = pd.DataFrame({
-    "review1": ["This product is terrible. I would not recommend it."],
-    "review2": ["I am very happy with my purchase. This product exceeded my expectations."],
-    "review3": ["I think this product is okay, but it could be better."],
-    "review4": ["This product is great for the price. I would definitely recommend it."],
-    "review5": ["This product is a complete disappointment."]
-})
+# Data with the text content of each article  
+data = pd.DataFrame({"article_1": ["article text here"],
+                     "article_2": ["article text here"],
+                     "article_3": ["article text here"],
+                     "article_4": ["article text here"]})
 
-# Labels
-labels = pd.DataFrame({
-    "review1": [1, 1, 0, 1, 0],
-    "review2": [1, 1, 0, 1, 0],
-    "review3": [0, 0, 1, 0, 0],
-    "review4": [1, 1, 0, 1, 0],
-    "review5": [0, 0, 0, 0, 1]
-})
+# Labels to denote 0/1 coverage of metadata for each article  
+labels = pd.DataFrame({"article_1": [1, 1, 0],
+                       "article_2": [1, 1, 0],
+                       "article_3": [0, 0, 1],
+                       "article_4": [1, 1, 0]},
+                       index=["label_1", "label_2", "label_3"])
 
-# TextBased selection
-method = SelectionMethod.TextBased(num_features=3, 
-                                   featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                  [Transformation.NMF(n_components=20),
-                                                                   Transformation.SVD(n_components=10)]),
-                                   optimization_method="greedy",
-                                   cost_metric="unicost",
-                                   trials=100)
-# Fit the method to the data and labels
-selector = Selective(method)
-selector.fit(reviews, labels)
+# TextWiser featurization method to create text embeddings
+textwiser = TextWiser(Embedding.TfIdf(), Transformation.NMF(n_components=20))
 
-# Get the selected features
-selected_features = selector.transform(reviews)
+# Text-based selection
+selector = Selective(SelectionMethod.TextBased(num_features=2, featurization_method=textwiser))
+
+# Feature reduction
+subset = selector.fit_transform(data, labels)
+print("Reduction:", list(subset.columns))
 ```
 
 ## Visualization
@@ -202,7 +192,7 @@ python setup.py sdist bdist_wheel
 pip install dist/selective-X.X.X-py3-none-any.whl
 ```
 
-## Test your set up
+## Test your setup
 
 ```
 cd selective
