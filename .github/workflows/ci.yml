@@ -7,13 +7,15 @@ on:
   pull_request:
     branches:
       - master
+  schedule:
+    - cron: '00 12 * * 1' # Runs every Monday at 8:00 AM EST
 
 jobs:
   Test:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10']
+        python-version: ['3.7', '3.8', '3.9', '3.10']
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v2
@@ -29,4 +31,3 @@ jobs:
           pip install -e .
           python3 -m unittest discover -v tests
           python3 setup.py install
-  

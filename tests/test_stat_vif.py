@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GNU GPLv3
 
 
-from sklearn.datasets import load_boston, load_iris
+from sklearn.datasets import fetch_california_housing, load_iris
 from feature.utils import get_data_label
 from feature.selector import Selective, SelectionMethod
 from tests.test_base import BaseTest
@@ -36,8 +36,8 @@ class TestVIF(BaseTest):
         self.assertListEqual(list(subset.columns), ['sepal width (cm)', 'petal width (cm)'])
 
     def test_vif_top_k_regression(self):
-        data, label = get_data_label(load_boston())
-        data = data.drop(columns=["CHAS", "NOX", "RM", "DIS", "RAD", "TAX", "PTRATIO", "INDUS"])
+        data, label = get_data_label(fetch_california_housing())
+        data = data.drop(columns=["Latitude", "Longitude", "Population"])
 
         method = SelectionMethod.Statistical(num_features=2, method="variance_inflation")
         selector = Selective(method)
@@ -46,7 +46,7 @@ class TestVIF(BaseTest):
 
         # Reduced columns
         self.assertEqual(subset.shape[1], 2)
-        self.assertListEqual(list(subset.columns), ['CRIM', 'ZN'])
+        self.assertListEqual(list(subset.columns), ['HouseAge', 'AveOccup'])
 
     def test_vif_top_percentile(self):
         data, label = get_data_label(load_iris())
