@@ -4,7 +4,7 @@
 import numpy as np
 import pandas as pd
 import random
-import sklearngi
+import sklearn
 from feature.selector import Selective, SelectionMethod
 from test_base import BaseTest
 from textwiser import TextWiser, Embedding, Transformation
