@@ -10,7 +10,8 @@ the coverage of binary labels by solving a multi-objective optimization problem 
 The library provides:
 
 * Simple to complex selection methods: Variance, Correlation, Statistical, Linear, Tree-based, or Customized.
-* Text based selection using text embedding diversity and metadata coverage.
+* Text based selection using text embedding diversity and metadata coverage. For instructions on how to use Text based
+selection, see [Text-based Selective](#text-based-selective)
 * Interoperable with data frames as the input.
 * Automated task detection. No need to know what feature selection method works with what machine learning task.
 * Benchmarking multiple selectors using cross-validation with built-in parallelization.

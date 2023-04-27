@@ -7,8 +7,7 @@ import random
 import pandas as pd
 import numpy as np
 from feature.base import _BaseSupervisedSelector
-from feature.utils import Num, check_true, Constants
-import matplotlib.pyplot as plt
+from feature.utils import Num, Constants
 from mip import Model, xsum, minimize, maximize, BINARY, INTEGER, OptimizationStatus
 from sklearn.cluster import KMeans
 from scipy import sparse
@@ -104,7 +103,7 @@ class ContentSelector:
         trials: int, default=10
             Number of trials to run for random functions to estimate average coverage.
         verbose: bool, default=False
-            Print intermediate results if 1.
+            Print intermediate results if True.
         """
 
         # Validate arguments
@@ -132,18 +131,20 @@ class ContentSelector:
 
         Parameters
         ----------
-        categories: pd.DataFrame
-            List of columns in data that contains categories/labels to be covered.
-
-        selection_size
         input_df: pd.DataFrame
             Input data frame with categories and features of content to select from.
+
+        categories: pd.DataFrame
+            Data frame with data that contains categories/labels to be covered.
+
+        selection_size: int
+            Number of feature to select.
 
         featurization_method: TextWiser
 
         optimization_method: str, default="exact"
             Optimization method used to perform content selection.
-            See TextBased in Selector.py for supported options definition
+                - See TextBased in Selector.py for supported options definition
 
         cost_metric: str, default = "diverse"
 
@@ -180,7 +181,7 @@ class ContentSelector:
 
     def _process_data(self, input_df: pd.DataFrame, categories: pd.DataFrame, selection_size: int,
                       optimization_method: str, cost_metric: str) -> NoReturn:
-        """_process_df
+        """_process_data
         We have implemented two versions of this function. In the version here, the categories parameter
         actually refers to the labels (rather than categories) to be covered. It generates features for input data
         using a specified featurization method, and creates a matrix where each row corresponds to a label and each
@@ -193,18 +194,18 @@ class ContentSelector:
             Input data frame with categories and features of content to select from.
 
         categories: pd.DataFrame
-            List of columns in data that contains categories/labels to be covered.
+            Data frame that contains categories/labels to be covered.
 
         selection_size: int
             Number of feature to select.
 
         optimization_method: str
-            The function need method to prevent performing featurization in
-             the case that optimization method is random(t or unicost) or greedy(unicost)
+            Code prevents performing featurization for the case mentioned in 'option_map' dictionary with
+            random, greedy and exact optimization.
 
         cost_metric: str
-            The function need cost metric to prevent performing featurization in
-             the case that cost metric is None or unicost (for random and greedy)
+            Code prevents performing featurization for the case mentioned in 'option_map' dictionary with
+            unicost or diverse cost metric.
 
         Returns
         -------
@@ -213,6 +214,9 @@ class ContentSelector:
         """
         self.matrix = categories.to_numpy()
         self._num_rows, self._num_cols = self.matrix.shape
+
+        # option_map contains the tuple of optimization_method, selection_size, and cost_metric
+        # that do not need featurization method
         option_map = {
             ("random", True, "diverse"): lambda: None,
             ("random", False, "unicost"): lambda: None,
@@ -223,6 +227,7 @@ class ContentSelector:
             ("exact", False, "unicost"): lambda: None
         }
 
+        # If the entry of in the dictionary matches below argument set, then corresponding lambda function is retrieved
         options = option_map.get((optimization_method, selection_size is not None, cost_metric))
         if options:
             options()
@@ -240,33 +245,34 @@ class ContentSelector:
     def _select_multi_level_optimization(self) -> List:
 
         unicost = np.ones(self._num_cols)
+        data = Data(cost=unicost, matrix=self.matrix)
 
         if self.selection_size is None:
             if self.cost_metric == "unicost":
-                unicost_selected = self._solve_set_cover_cost_option(unicost)
-                selected = unicost_selected
+                selected = self._solve_set_cover(data)
             else:
-                unicost_selected = self._solve_set_cover_cost_option(unicost)
+                unicost_selected = self._solve_set_cover(data)
                 k_unicost = len(unicost_selected)
-                diversity_cost = self._get_diversity_cost(k_unicost)
-                diversity_selected = self._solve_set_cover_cost_option(diversity_cost)
-                selected = diversity_selected
+                cost_diversity = self._get_diversity_cost(k_unicost)
+                data_diversity = Data(cost=cost_diversity, matrix=self.matrix)
+                selected = self._solve_set_cover(data_diversity)
         else:
             if self.cost_metric == "unicost":
-                selected = self._solve_set_cover_cost_option(unicost)
+                selected = self._solve_set_cover(data)
                 cost = unicost
                 k = len(selected)
             else:
-                unicost_selected = self._solve_set_cover_cost_option(unicost)
+                unicost_selected = self._solve_set_cover(data)
                 k_unicost = len(unicost_selected)
-                cost = self._get_diversity_cost(k_unicost)
-                selected = self._solve_set_cover_cost_option(cost)
+                cost_diversity = self._get_diversity_cost(k_unicost)
+                data_diversity = Data(cost=cost_diversity, matrix=self.matrix)
+                selected = self._solve_set_cover(data_diversity)
+                cost = cost_diversity
                 k = len(selected)
 
             if self.selection_size < k:
                 data = Data(cost=cost, matrix=self.matrix)
                 selected = self._solve_max_cover(data, selected)
-                k = len(selected)
             else:
                 pass
 
@@ -306,7 +312,8 @@ class ContentSelector:
         return diversity_cost
 
     def _get_num_row_covered(self, selected) -> int:
-        check_true(self.matrix is not None, "matrix is not initialized")
+        if self.matrix is None:
+            raise ValueError("matrix is not initialized")
 
         # Create indicator to count number of covered rows
         row_covered = np.sum(self.matrix[:, selected], axis=1)
@@ -497,7 +504,8 @@ class ContentSelector:
         # Solve
         model.verbose = False
         model.optimize()
-        check_true(model.status == OptimizationStatus.OPTIMAL, "Max Cover Error: optimal solution not found.")
+        if model.status != OptimizationStatus.OPTIMAL:
+            raise ValueError("Max Cover Error: optimal solution not found.")
 
         # Solution
         selected = [i for i in data.X if float(x[i].x) >= 0.99]
@@ -510,11 +518,6 @@ class ContentSelector:
             print("=" * 40)
 
         # Return
-        return selected
-
-    def _solve_set_cover_cost_option(self, cost: np.ndarray) -> List:
-        data = Data(cost=cost, matrix=self.matrix)
-        selected = self._solve_set_cover(data)
         return selected
 
     def _solve_max_cover(self, data: Data, selected: List) -> List:

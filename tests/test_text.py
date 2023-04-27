@@ -6,7 +6,7 @@ import pandas as pd
 import random
 import sklearn
 from feature.selector import Selective, SelectionMethod
-from test_base import BaseTest
+from tests.test_base import BaseTest
 from textwiser import TextWiser, Embedding, Transformation
 
 

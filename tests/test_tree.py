@@ -14,7 +14,7 @@ from xgboost import XGBClassifier, XGBRegressor
 
 from feature.selector import Selective, SelectionMethod
 from feature.utils import get_data_label, Constants
-from .test_base import BaseTest
+from tests.test_base import BaseTest
 
 
 class TestTree(BaseTest):
