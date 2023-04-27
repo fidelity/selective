@@ -372,7 +372,7 @@ class SelectionMethod(NamedTuple):
         optimization_method: str = "exact"
         cost_metric: str = "diverse"
         trials: int = 10
-        seed: int = Constants.default_seed
+        #seed: int = Constants.default_seed
 
         def _validate(self):
             if self.num_features is not None:
@@ -518,7 +518,8 @@ class Selective:
         else:
             raise ValueError("Unknown Selection Method " + str(selection_method))
 
-    def fit(self, data: pd.DataFrame, labels: Optional[pd.Series, pd.DataFrame] = None) -> NoReturn:
+    # def fit(self, data: pd.DataFrame, labels: Optional[pd.Series, pd.DataFrame] = None) -> NoReturn:
+    def fit(self, data: pd.DataFrame, labels: Optional[Union[pd.Series, pd.DataFrame]] = None) -> NoReturn:
 
         # Validate
         self._validate_fit(data, labels)
@@ -544,7 +545,10 @@ class Selective:
         # Return transformed data
         return self._imp.transform(data)
 
-    def fit_transform(self, data: pd.DataFrame, labels: Optional[pd.Series, pd.DataFrame] = None) -> pd.DataFrame:
+    # def fit_transform(self, data: pd.DataFrame, labels: Optional[pd.Series, pd.DataFrame] = None) -> pd.DataFrame:
+    def fit_transform(self, data: pd.DataFrame, labels: Optional[Union[pd.Series, pd.DataFrame]] = None) \
+            -> pd.DataFrame:
+
         self.fit(data, labels)
         return self.transform(data)
 
@@ -594,6 +598,8 @@ class Selective:
                     check_true(isinstance(labels, pd.DataFrame), ValueError("Labels should be a pandas dataframe."))
                 else:
                     check_true(isinstance(labels, pd.Series), ValueError("Labels should be a pandas series/column."))
+
+                assert data.shape[1] == labels.shape[0], "Erorr: Number of columns in data and labels should match"
 
         if not hasattr(self.selection_method, 'num_features'):
             return

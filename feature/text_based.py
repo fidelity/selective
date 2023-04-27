@@ -7,7 +7,7 @@ import random
 import pandas as pd
 import numpy as np
 from feature.base import _BaseSupervisedSelector
-from feature.utils import Num, check_true
+from feature.utils import Num, check_true, Constants
 import matplotlib.pyplot as plt
 from mip import Model, xsum, minimize, maximize, BINARY, INTEGER, OptimizationStatus
 from sklearn.cluster import KMeans
@@ -36,11 +36,15 @@ class Data:
 
     @staticmethod
     def _verify_input(cost, matrix):
-        check_true(cost is not None, "Data Error: cost cannot be none")
-        check_true(matrix is not None, "Data Error: cost cannot be none")
-        check_true(matrix.ndim == 2, "Data Error: matrix should 2D")
-        check_true(len(cost) == matrix.shape[1], "Data Error: cost vector size should match the number of columns " +
-                   str(len(cost)) + " vs. " + str(matrix.shape[1]))
+        if cost is None:
+            raise ValueError("Cost cannot be None.")
+        if matrix is None:
+            raise ValueError("Matrix cannot be None.")
+        if matrix.ndim != 2:
+            raise ValueError("Matrix should be 2D")
+        if len(cost) != matrix.shape[1]:
+            raise ValueError("Cost vector size should match the number of columns in the matrix: "
+                             f"{len(cost)} vs. {matrix.shape[1]}.")
 
 
 class ContentSelector:
@@ -80,12 +84,13 @@ class ContentSelector:
         Numeric featurization of content.
 
     References:
-    [1] Kadioglu et. al., Optimized Item Selection to Boost Exploration for Recommender Systems, CPAIOR'21
-    [2] Kleynhans et. al. Active Learning Meets Optimized Item Selection, DSO@IJCAI'21
+    [1] Kadioglu et al., Optimized Item Selection to Boost Exploration for Recommender Systems, CPAIOR'21
+    [2] Kleynhans et al. Active Learning Meets Optimized Item Selection, DSO@IJCAI'21
 
     """
 
-    def __init__(self, selection_size: int, seed: int = 123546, trials: int = 10, verbose: int = 0):
+    def __init__(self, selection_size: int, seed: int = Constants.default_seed, trials: int = 10,
+                 verbose: bool = False):
         """ContentSelector
 
        Creates a content selector object.
@@ -98,7 +103,7 @@ class ContentSelector:
             Random seed.
         trials: int, default=10
             Number of trials to run for random functions to estimate average coverage.
-        verbose: int, default=0
+        verbose: bool, default=False
             Print intermediate results if 1.
         """
 
@@ -111,7 +116,7 @@ class ContentSelector:
         self.selection_size = selection_size
         self.seed = seed
         self.trials = trials
-        self.verbose = verbose == 1
+        self.verbose = False
 
         # Initialize class variables
         self.matrix = None
@@ -119,7 +124,7 @@ class ContentSelector:
         self._num_rows = None
         self._num_cols = None
 
-    def run_content_selection(self, input_df: pd.DataFrame, categories: List[int], selection_size: int,
+    def run_content_selection(self, input_df: pd.DataFrame, categories: pd.DataFrame, selection_size: int,
                               featurization_method: TextWiser, optimization_method: str = "exact",
                               cost_metric: str = "diverse", trials: int = 10) -> List:
 
@@ -131,7 +136,7 @@ class ContentSelector:
         input_df: pd.DataFrame
             Input data frame with categories and features of content to select from.
 
-        categories: List[int]
+        categories: pd.DataFrame
             List of columns in data that contains categories/labels to be covered.
 
         featurization_method: TextWiser
@@ -173,7 +178,7 @@ class ContentSelector:
 
         return selected
 
-    def _process_data(self, input_df: pd.DataFrame, categories: List[int], selection_size: int,
+    def _process_data(self, input_df: pd.DataFrame, categories: pd.DataFrame, selection_size: int,
                       optimization_method: str, cost_metric: str) -> NoReturn:
         """_process_df
         We have implemented two versions of this function. In the version here, the categories parameter
@@ -187,7 +192,7 @@ class ContentSelector:
         input_df: pd.DataFrame
             Input data frame with categories and features of content to select from.
 
-        categories: List[int]
+        categories: pd.DataFrame
             List of columns in data that contains categories/labels to be covered.
 
         selection_size: int
@@ -224,14 +229,13 @@ class ContentSelector:
         else:
             feature_column = self.featurization_method.fit_transform(input_df)
             self.features = np.array([eval(l) if isinstance(l, str) else l for l in feature_column.tolist()])
-            check_true(len(self.features) == self._num_cols,
-                       f"Process Data Error: features size ({len(self.features)}) "
-                       f"should match the number of columns ({self._num_cols})")
-
-        check_true(self.matrix.ndim == 2, "Process Data Error: matrix should 2D")
-        if self.selection_size is not None:
-            check_true(self.selection_size <= self._num_cols,
-                       "Process Data Error: selection_size cannot exceed num columns")
+            if len(self.features) != self._num_cols:
+                raise ValueError(f"Process Data Error: features size ({len(self.features)}) should match the number"
+                                 f"of columns ({self._num_cols})")
+        if self.matrix.ndim != 2:
+            raise ValueError("Process Data Error: matrix should 2D")
+        if self.selection_size is not None and self.selection_size > self._num_cols:
+            raise ValueError("Process Data Error: selection_size cannot exceed num columns")
 
     def _select_multi_level_optimization(self) -> List:
 
@@ -342,7 +346,7 @@ class ContentSelector:
 
     def _select_kmeans(self) -> List:
         if self.selection_size is None:
-            cost, selected_size = self._get_selection_size()
+            _, selected_size = self._get_selection_size()
         else:
             selected_size = self.selection_size
 
@@ -441,7 +445,7 @@ class ContentSelector:
         best_covered = 0
 
         if self.selection_size is None:
-            self.selection_size = self._get_selection_size()
+            _, self.selection_size = self._get_selection_size()
 
         for t in range(trials):
             # Select a sample of selection_size without repetition
@@ -491,7 +495,7 @@ class ContentSelector:
         model.objective = minimize(xsum(data.cost[i] * x[i] for i in data.X))
 
         # Solve
-        model.verbose = 0
+        model.verbose = False
         model.optimize()
         check_true(model.status == OptimizationStatus.OPTIMAL, "Max Cover Error: optimal solution not found.")
 
@@ -549,7 +553,7 @@ class ContentSelector:
         model.objective = maximize(xsum(is_row_covered[row] for row in data.rows))
 
         # Solve
-        model.verbose = 0
+        model.verbose = False
         model.optimize()
 
         # Solution
@@ -604,35 +608,30 @@ class _TextBased(_BaseSupervisedSelector):
         self.trials = trials
 
         # Class variables
-        self.selected_features = None
         self.content_selector = ContentSelector(selection_size=num_features,
-                                                seed=self.seed, trials=trials, verbose=True)
+                                                seed=self.seed, trials=trials, verbose=False)
 
     def fit(self, data: pd.DataFrame, labels: pd.DataFrame) -> NoReturn:
 
         # Call fit method from parent class _BaseSupervisedSelector
         super().fit(data, labels)
 
-        # Get the text columns dynamically
-        text_columns = [col for col in data.columns if col.startswith("item")]
-
         selected_indicies = self.content_selector.run_content_selection(data, labels, self.selection_size,
                                                                         self.featurization_method,
                                                                         self.optimization_method, self.cost_metric)
 
-        # Only select the features that were selected during fit
-        selected_features = [col for i, col in enumerate(text_columns) if i in selected_indicies]
-        self.selected_features = selected_features
+        # Set absolute score for each feature
+        abs_scores = np.zeros(data.shape[1], dtype=bool)
+        abs_scores[selected_indicies] = True
+        self.abs_scores = abs_scores
+
+        # Set number of selected features
+        self.num_features = len(selected_indicies)
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
 
-        feature_selected = data[self.selected_features]
-        print("Selected items:")
-        for i, contents in enumerate(feature_selected):
-            print(f"content{i+1}: {contents}")
-        print("=" * 110)
-
-        return feature_selected
+        # Select top-k from data based on abs_scores and num_features
+        return self.get_top_k(data, self.abs_scores)
 
 
 # def plot_selection(name: str, embedding: Union[List[List], np.ndarray], selected: List,
