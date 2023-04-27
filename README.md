@@ -114,9 +114,9 @@ This example shows how to use text-based selection.
 In this scenario, we would like to select a subset of articles that is most diverse and covers a range of topics. 
 
 ### Input
-* We represent the dataset as a pandas DataFrame with 5 reviews (each review is a feature, 
+* We represent the dataset as a pandas DataFrame with 5 articles (each article is a feature, 
 and each row represents a feature)
-* We also have a corresponding labels DataFrame, which is a 5x5 matrix where each column represents a review. 
+* We also have a corresponding labels DataFrame, which is a matrix where each column represents an article. 
 * TextBased parameters:
   - *num_features*: An integer representing the number of text features to be used in the selection process. 
   - *featurization_method*: A text embedding method to transform the text features into numerical vectors using 

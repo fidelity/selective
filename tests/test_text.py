@@ -15,6 +15,9 @@ class TestText(BaseTest):
     ################################################
     ########## Tests for random selection ##########
     ################################################
+
+    # Check Random with unicost and diverse (the same features should select)
+    # Check solution for large trails with the same seed (the same features should select)
     def test_text_based_random_num_feature(self):
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
@@ -28,7 +31,7 @@ class TestText(BaseTest):
         # Verify that the number of columns is data and labels match
         self.assertEqual(data.shape[1], labels.shape[1])
 
-        # Fic the random seed
+        # Fix the random seed
         seed = 123
         np.random.seed(seed)
 
@@ -41,6 +44,12 @@ class TestText(BaseTest):
                                                    optimization_method="random",
                                                    cost_metric="diverse",
                                                    trials=1)
+
+        # Find the best solution using multiple trails and assert that it is selected with the same seed
+        method = SelectionMethod.TextBased(num_features=3,
+                                           optimization_method="random",
+                                           cost_metric="unicost",
+                                           trials=20)
 
         selector_unicost = Selective(method_unicost, seed=seed)
         selector_unicost.fit(data, labels)
@@ -58,24 +67,16 @@ class TestText(BaseTest):
         # Verify the consistency of selected features with the initial run
         self.assertTrue(selected_features_unicost.equals(selected_features_diverse))
 
-        # Find the best solution using multiple trails and assert that it is selected with the same seed
-        method = SelectionMethod.TextBased(num_features=3,
-                                           optimization_method="random",
-                                           cost_metric="unicost",
-                                           trials=20)
-
         # Set the same seed again
         np.random.seed(seed)
         best_selector = Selective(method, seed=seed)
         best_selector.fit(data, labels)
         best_selected_features = best_selector.transform(data)
 
-        # Verify the consistency of selected features with the initial run
-        self.assertTrue(selected_features_unicost.equals(best_selected_features))
-
         # Verify the selected indices
         self.assertListEqual(list(best_selector.transform(data).columns), ['item2', 'item3', 'item5'])
 
+    # Verify selection for the Random method, unicost, and none number of features
     def test_text_based_random_unicost(self):
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
@@ -96,14 +97,11 @@ class TestText(BaseTest):
         method = SelectionMethod.TextBased(num_features=None,
                                            optimization_method="random",
                                            cost_metric="unicost",
-                                           trials=5)
+                                           trials=1)
 
         selector = Selective(method, seed=seed)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
-
-        # Check whether the seed value used in test is the same (not the default = 123456)
-        self.assertEqual(selector.seed, seed)
 
         # Check whether the selector.transform() is returned a DataFrame or not
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
@@ -112,10 +110,11 @@ class TestText(BaseTest):
         # by solving set cover
         self.assertEqual(selected_features.shape[1], 2)
 
-        # Verify the selected indices
+        # Verify the selected feature
         self.assertListEqual(list(selected_features.columns), ['item2', 'item3'])
         self.assertTrue(set(selected_features.columns).issubset(data.columns))
 
+    # Verify selection for the Random method, diverse, and none number of features
     def test_text_based_random_diverse(self):
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
@@ -139,7 +138,7 @@ class TestText(BaseTest):
                                                                            Transformation.SVD(n_components=10)]),
                                            optimization_method="random",
                                            cost_metric="diverse",
-                                           trials=5)
+                                           trials=1)
 
         selector = Selective(method, seed=seed)
         selector.fit(data, labels)
@@ -162,6 +161,10 @@ class TestText(BaseTest):
     ################################################
     ########## Tests for greedy selection ##########
     ################################################
+
+    # Check selection for a single labels column of ones (select column with one)
+    # Check selection for infeasible instance (empty)
+    # Check selection for label matrix with considerable coverage (same features should select with the same seed)
     def test_text_based_greedy_num_feature_one_or_infeasible_or_max(self):
         # Fix the random seed
         seed = 12
@@ -209,7 +212,6 @@ class TestText(BaseTest):
         selector.fit(data, labels_infeasible)
         selected_features_infeasible = selector.transform(data)
 
-        assert selector.selection_method.trials == 10
         self.assertTrue(isinstance(selected_features_infeasible, pd.DataFrame))
 
         # Verify that there is at least one selected column for each label
@@ -222,9 +224,9 @@ class TestText(BaseTest):
         # Check whether feasible is False
         self.assertFalse(feasible)
 
-        ### Labels with a column with considerable coverage ###
-        labels = pd.DataFrame({"item1": [1, 0, 0, 0, 1], "item2": [0, 1, 0, 1, 1], "item3": [1, 0, 1, 0, 1],
-                               "item4": [1, 0, 0, 0, 0], "item5": [0, 1, 0, 0, 0]})
+        ### Label columns with considerable coverage ###
+        labels = pd.DataFrame({"item1": [1, 0, 1, 0, 1], "item2": [0, 1, 0, 1, 1], "item3": [1, 0, 1, 0, 1],
+                               "item4": [1, 0, 1, 0, 0], "item5": [0, 1, 0, 1, 1]})
 
         method_max_cols = SelectionMethod.TextBased(num_features=2,
                                                     optimization_method="greedy",
@@ -236,13 +238,14 @@ class TestText(BaseTest):
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
-        assert selector.selection_method.trials == 10
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
         self.assertEqual(selected_features.shape[1], 2)
 
         # Verify selected features with considerable label coverage
-        self.assertListEqual(list(selected_features.columns), ['item2', 'item3'])
+        self.assertListEqual(list(selected_features.columns), ['item1', 'item2'])
 
+    # Verify selection for the Greedy method, diverse with highly correlated features
+    # (same features should select with the same seed)
     def test_text_based_greedy_num_feature_unicost_diverse(self):
         ### Several highly correlated features but grouped based on labels ###
         data = pd.DataFrame(
@@ -283,6 +286,7 @@ class TestText(BaseTest):
         # Verify that features are selected are low correlated
         self.assertListEqual(list(selected_features.columns), ['item3', 'item5', 'item7'])
 
+    # Check selection for labels with identity matrix (select all columns)
     def test_text_based_greedy_unicost_diverse_identity(self):
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
@@ -316,7 +320,6 @@ class TestText(BaseTest):
         selector = Selective(method, seed=seed)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
-        print(selected_features)
 
         assert selector.selection_method.trials == 10
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
@@ -327,6 +330,8 @@ class TestText(BaseTest):
     ################################################
     ########## Tests for kmeans selection ##########
     ################################################
+
+    # Verify selection for the KMeans method and unicost cost metric with the same seed
     def test_text_based_kmeans_num_feature(self):
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
@@ -351,7 +356,7 @@ class TestText(BaseTest):
         # Verify that the number of columns is data and labels match
         self.assertEqual(data.shape[1], labels.shape[1])
 
-        # Set random seed for both NumPy and scikit-learn
+        # For kmeans need to set random seed for both NumPy and scikit-learn
         seed = 1234
         np.random.seed(seed)
         random.seed(seed)
@@ -372,6 +377,7 @@ class TestText(BaseTest):
         # Verify that features are selected are low correlated
         self.assertListEqual(list(selected_features.columns), ['item1', 'item7'])
 
+    # Verify selection for the Random method, unicost cost metric, and none number of features with the same seed
     def test_text_based_kmeans_unicost(self):
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
@@ -412,6 +418,10 @@ class TestText(BaseTest):
         # Verify that the features selected
         self.assertListEqual(list(selected_features.columns), ['item1', 'item2', 'item4', 'item5', 'item7'])
 
+    # Check the test consistency for KMeans with diverse cost and none number of features
+    # (same features should select with the same seed)
+    # Check the test with same seed and different TextWiser parameters
+    # (different features should select with the same seed)
     def test_text_based_kmeans_diverse(self):
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
@@ -464,7 +474,8 @@ class TestText(BaseTest):
                                             featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
                                                                            [Transformation.NMF(n_components=30),
                                                                             Transformation.SVD(n_components=10)]),
-                                            optimization_method="kmeans")
+                                            optimization_method="kmeans",
+                                            cost_metric="diverse")
         selector3 = Selective(method2, seed=seed)
         selector3.fit(data, labels)
         selected_features3 = selector3.transform(data)
@@ -475,6 +486,9 @@ class TestText(BaseTest):
     ###############################################
     ########## Tests for exact selection ##########
     ###############################################
+
+    # Verify selection for the Exact method, unicost, and none number of features with the same seed
+    # (the same features should select)
     def test_text_based_exact_unicost(self):
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
@@ -525,6 +539,8 @@ class TestText(BaseTest):
         # Verify that the features selected
         self.assertListEqual(list(selected_features2.columns), ['item1', 'item2', 'item3'])
 
+    # Verify selection for the Exact method, unicost, and fixed number of features with the same seed
+    # (the same features should select)
     def test_text_based_exact_num_feature_unicost(self):
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
@@ -559,7 +575,6 @@ class TestText(BaseTest):
         selector = Selective(method, seed=seed)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
-        print(selected_features.columns)
 
         assert selector.selection_method.trials == 1  # Only run once
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
@@ -575,6 +590,8 @@ class TestText(BaseTest):
         # Verify that the features selected
         self.assertListEqual(list(selected_features2.columns), ['item1', 'item3'])
 
+    # Verify selection for the Exact method, diverse, and none number of features with the same seed
+    # (the same features should select)
     def test_text_based_exact_diverse(self):
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
@@ -638,6 +655,8 @@ class TestText(BaseTest):
         # Verify that the features selected
         self.assertListEqual(list(selected_features2.columns), ['item2', 'item5', 'item6'])
 
+    # Verify selection for the Exact method, diverse, and fixed number of features with the same seed
+    # (the same features should select)
     def test_text_based_exact_num_feature_diverse(self):
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],

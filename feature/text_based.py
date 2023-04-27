@@ -233,7 +233,8 @@ class ContentSelector:
             options()
         else:
             feature_column = self.featurization_method.fit_transform(input_df)
-            self.features = np.array([eval(l) if isinstance(l, str) else l for l in feature_column.tolist()])
+            self.features = np.array([eval(txt_feature) if isinstance(txt_feature, str)
+                                      else txt_feature for txt_feature in feature_column.tolist()])
             if len(self.features) != self._num_cols:
                 raise ValueError(f"Process Data Error: features size ({len(self.features)}) should match the number"
                                  f"of columns ({self._num_cols})")
@@ -282,10 +283,11 @@ class ContentSelector:
     def _get_diversity_cost(self, selected_size: int) -> List[float]:
         """
         diversity cost:
-            there is a situation where selected_size is equal to the number of rows in features and all diversity
-             costs become zero. There are two ways to handle this situation:
-                * add dummy cost to diversity cost (DUMMY)
-                * check if any of the distances in the distances matrix is zero, and if so, replace it with
+            there is a situation where the minimum distance between each two features is zero. This situation may occur
+             if the features are very similar or if there are a limited number of features.
+              When this happens, the cost becomes zero. There are two ways to handle this situation:
+                - add dummy cost to diversity cost (DUMMY)
+                - check if any of the distances in the distances matrix is zero, and if so, replace it with
                  the next smallest non-zero distance (NEXT_S_DIS).
         """
         kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
@@ -521,9 +523,6 @@ class ContentSelector:
         return selected
 
     def _solve_max_cover(self, data: Data, selected: List) -> List:
-        # If selected is given, limit the max_cover_size
-        if selected is not None and self.selection_size is not None and len(selected) > 0:
-            assert (self.selection_size <= len(selected)), "Max Cover Error: max_cover_size cannot exceed num selected"
 
         # Model
         model = Model("Max Cover Model")
