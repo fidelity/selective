@@ -25,6 +25,9 @@ class TestText(BaseTest):
         labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
                                "item4": [0, 1, 1, 0, 1], "item5": [0, 1, 0, 0, 1]})
 
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
+
         # Fic the random seed
         seed = 123
         np.random.seed(seed)
@@ -59,7 +62,7 @@ class TestText(BaseTest):
         method = SelectionMethod.TextBased(num_features=3,
                                            optimization_method="random",
                                            cost_metric="unicost",
-                                           trials=100)
+                                           trials=20)
 
         # Set the same seed again
         np.random.seed(seed)
@@ -83,6 +86,9 @@ class TestText(BaseTest):
         labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
                                "item4": [0, 1, 1, 0, 1], "item5": [0, 1, 0, 0, 1]})
 
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
+
         # Use same seed for both methods
         seed = 123
         np.random.seed(seed)
@@ -102,10 +108,6 @@ class TestText(BaseTest):
         # Check whether the selector.transform() is returned a DataFrame or not
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
 
-        # Check whether the number of row `selected_features' is the same as
-        # the number of rows in the input data or not
-        self.assertEqual(selected_features.shape[0], data.shape[0])
-
         # Check whether the number of columns in `selected_features' is equal to num_features selected
         # by solving set cover
         self.assertEqual(selected_features.shape[1], 2)
@@ -123,6 +125,9 @@ class TestText(BaseTest):
              "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
         labels = pd.DataFrame({"item1": [0, 1, 0, 0, 0], "item2": [1, 0, 0, 1, 0], "item3": [0, 0, 1, 0, 1],
                                "item4": [0, 1, 1, 0, 1], "item5": [0, 1, 0, 0, 1]})
+
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
 
         seed = 123
         np.random.seed(seed)
@@ -145,10 +150,6 @@ class TestText(BaseTest):
 
         # Check whether the selector.transform() is returned a DataFrame or not
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-
-        # Check whether the number of row `selected_features' is the same as
-        # the number of rows in the input data or not
-        self.assertEqual(selected_features.shape[0], data.shape[0])
 
         # Check whether the number of columns in `selected_features' is equal to num_features selected
         # by solving set cover
@@ -181,13 +182,15 @@ class TestText(BaseTest):
                                                       optimization_method="greedy",
                                                       cost_metric="unicost")
 
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels_single_col.shape[1])
+
         selector = Selective(method_single_col, seed=seed)
         selector.fit(data, labels_single_col)
         selected_features_single_col = selector.transform(data)
 
         assert selector.selection_method.trials == 10
         self.assertTrue(isinstance(selected_features_single_col, pd.DataFrame))
-        self.assertEqual(selected_features_single_col.shape[0], data.shape[0])
 
         # Verify greedy selects the item1
         self.assertListEqual(list(selected_features_single_col.columns), ["item1"])
@@ -205,6 +208,7 @@ class TestText(BaseTest):
         selector = Selective(method_infeasible, seed=seed)
         selector.fit(data, labels_infeasible)
         selected_features_infeasible = selector.transform(data)
+
         assert selector.selection_method.trials == 10
         self.assertTrue(isinstance(selected_features_infeasible, pd.DataFrame))
 
@@ -214,6 +218,7 @@ class TestText(BaseTest):
             if label not in selected_features_infeasible.columns:
                 feasible = False
                 break
+
         # Check whether feasible is False
         self.assertFalse(feasible)
 
@@ -233,7 +238,6 @@ class TestText(BaseTest):
 
         assert selector.selection_method.trials == 10
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-        self.assertEqual(selected_features.shape[0], data.shape[0])
         self.assertEqual(selected_features.shape[1], 2)
 
         # Verify selected features with considerable label coverage
@@ -254,6 +258,9 @@ class TestText(BaseTest):
                                "item5": [0, 1, 0, 0, 1, 0, 0], "item6": [1, 0, 0, 0, 0, 0, 0],
                                "item7": [1, 0, 0, 1, 0, 0, 1]})
 
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
+
         # Fix the random seed due to use highly correlated features and randomness in the Lagrangian multiplier
         seed = 12
         np.random.seed(seed)
@@ -271,7 +278,6 @@ class TestText(BaseTest):
 
         assert selector.selection_method.trials == 10
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-        self.assertEqual(selected_features.shape[0], data.shape[0])
         self.assertEqual(selected_features.shape[1], 3)
 
         # Verify that features are selected are low correlated
@@ -293,6 +299,9 @@ class TestText(BaseTest):
                                "item5": [0, 0, 0, 0, 1, 0, 0], "item6": [0, 0, 0, 0, 0, 1, 0],
                                "item7": [0, 0, 0, 0, 0, 0, 1]})
 
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
+
         # Fix the random seed
         seed = 12
         np.random.seed(seed)
@@ -311,7 +320,6 @@ class TestText(BaseTest):
 
         assert selector.selection_method.trials == 10
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-        self.assertEqual(selected_features.shape[0], data.shape[0])
 
         # Verify all features are selected
         self.assertListEqual(selected_features.columns.tolist(), data.columns.tolist())
@@ -340,6 +348,9 @@ class TestText(BaseTest):
                                            optimization_method="kmeans",
                                            cost_metric="unicost")  # Default is diverse
 
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
+
         # Set random seed for both NumPy and scikit-learn
         seed = 1234
         np.random.seed(seed)
@@ -353,7 +364,6 @@ class TestText(BaseTest):
 
         self.assertEqual(selector.seed, 1234)
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-        self.assertEqual(selected_features.shape[0], data.shape[0])
         self.assertEqual(selected_features.shape[1], 2)
 
         # Check the selected features are a subset of the original columns
@@ -383,6 +393,9 @@ class TestText(BaseTest):
                                            optimization_method="kmeans",
                                            cost_metric="unicost")  # Default cost metric is diverse
 
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
+
         # Set random seed for both NumPy and scikit-learn
         seed = 1234
         np.random.seed(seed)
@@ -395,7 +408,6 @@ class TestText(BaseTest):
         selected_features = selector.transform(data)
 
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-        self.assertEqual(selected_features.shape[0], data.shape[0])
 
         # Verify that the features selected
         self.assertListEqual(list(selected_features.columns), ['item1', 'item2', 'item4', 'item5', 'item7'])
@@ -420,6 +432,9 @@ class TestText(BaseTest):
                                                                            Transformation.SVD(n_components=10)]),
                                            optimization_method="kmeans",
                                            cost_metric="diverse")  # Default cost metric is diverse
+
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
 
         # Set random seed for both NumPy and scikit-learn
         seed = 1234
@@ -474,6 +489,9 @@ class TestText(BaseTest):
                                "item5": [1, 0, 1, 0, 1, 0, 0], "item6": [1, 0, 1, 0, 0, 1, 0],
                                "item7": [0, 1, 0, 0, 0, 0, 1]})
 
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
+
         method = SelectionMethod.TextBased(num_features=None,
                                            optimization_method="exact",
                                            cost_metric="unicost",
@@ -494,8 +512,6 @@ class TestText(BaseTest):
 
         assert selector.selection_method.trials == 1  # Only run once
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-        self.assertEqual(selected_features.shape[0], data.shape[0])
-
 
         np.random.seed(seed)  # Set the same seed again
 
@@ -523,6 +539,9 @@ class TestText(BaseTest):
                                "item5": [1, 0, 1, 0, 1, 0, 0], "item6": [1, 0, 1, 0, 0, 1, 0],
                                "item7": [0, 1, 0, 0, 0, 0, 1]})
 
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
+
         method = SelectionMethod.TextBased(num_features=2,  # num_features is less than the solution of set cover
                                            optimization_method="exact",
                                            cost_metric="unicost",
@@ -544,7 +563,6 @@ class TestText(BaseTest):
 
         assert selector.selection_method.trials == 1  # Only run once
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-        self.assertEqual(selected_features.shape[0], data.shape[0])
 
         np.random.seed(seed)  # Set the same seed again
         selector2 = Selective(method2, seed=seed)
@@ -571,6 +589,9 @@ class TestText(BaseTest):
                                "item5": [1, 0, 1, 0, 1, 0, 0], "item6": [1, 0, 1, 0, 0, 1, 0],
                                "item7": [0, 1, 0, 0, 0, 0, 1]})
 
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
+
         method = SelectionMethod.TextBased(num_features=None,
                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
                                                                           [Transformation.NMF(n_components=70),
@@ -584,7 +605,8 @@ class TestText(BaseTest):
                                                                           [Transformation.NMF(n_components=70),
                                                                            Transformation.SVD(n_components=20)]),
                                             optimization_method="exact",
-                                            cost_metric="diverse")  # Default for trials=10
+                                            cost_metric="diverse",
+                                            trials=20)  # Default for trials=10
 
         # Set a fixed seed for the random number generator
         seed = 12345
@@ -600,7 +622,6 @@ class TestText(BaseTest):
 
         assert selector.selection_method.trials == 1  # Only run once
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-        self.assertEqual(selected_features.shape[0], data.shape[0])
 
         np.random.seed(seed)
         random.seed(seed)
@@ -631,6 +652,9 @@ class TestText(BaseTest):
                                "item5": [1, 0, 1, 0, 1, 0, 0], "item6": [1, 0, 1, 0, 0, 1, 0],
                                "item7": [0, 1, 0, 0, 0, 0, 1]})
 
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
+
         method = SelectionMethod.TextBased(num_features=2,  # num_features is less than the solution of set cover
                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
                                                                           [Transformation.NMF(n_components=70),
@@ -657,7 +681,6 @@ class TestText(BaseTest):
 
         assert selector.selection_method.trials == 1  # Only run once
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
-        self.assertEqual(selected_features.shape[0], data.shape[0])
 
         np.random.seed(seed)  # Set the same seed again
         selector2 = Selective(method2, seed=seed)

@@ -132,12 +132,12 @@ class ContentSelector:
 
         Parameters
         ----------
+        categories: pd.DataFrame
+            List of columns in data that contains categories/labels to be covered.
+
         selection_size
         input_df: pd.DataFrame
             Input data frame with categories and features of content to select from.
-
-        categories: pd.DataFrame
-            List of columns in data that contains categories/labels to be covered.
 
         featurization_method: TextWiser
 
