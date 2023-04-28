@@ -703,3 +703,34 @@ class _TextBased(_BaseSupervisedSelector):
 #         plt.savefig(save_fig_name)
 #
 #     return ax
+
+
+# def _process_data(input_df: pd.DataFrame, categories: List[str], feature_column: str, selection_size: int) \
+#         -> Tuple[np.ndarray, np.ndarray]:
+#     # Get label for each row based on input categories
+#     labels_list = []
+#     for index, row in input_df.iterrows():
+#         labels = []
+#         for c in categories:
+#             l = c + " " + str(row[c]).replace("\n", " ")
+#             labels.append(l)
+#         labels_list.append(" | ".join(labels))
+#     input_df["labels"] = labels_list
+#
+#     # Matrix
+#     matrix = (input_df.labels.str.split('|', expand=True)
+#                    .stack()
+#                    .str.get_dummies()
+#                    .sum(level=0)).T.values
+#
+#     num_rows, num_cols = matrix.shape
+#
+#     features = np.array([eval(l) if isinstance(l, str) else l for l in input_df[feature_column].tolist()])
+#
+#     assert (matrix.ndim == 2), "Process Data Error: matrix should 2D"
+#     assert (len(features) == num_cols), \
+#         f"Process Data Error: features size ({len(features)}) " \
+#         f"should match the number of columns ({num_cols})"
+#     assert (selection_size <= num_cols), "Process Data Error: selection_size cannot exceed num columns"
+#
+#     return matrix, features
