@@ -106,8 +106,8 @@ class TestText(BaseTest):
         # Check whether the selector.transform() is returned a DataFrame or not
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
 
-        # Check whether the number of columns in `selected_features' is equal to num_features selected
-        # by solving set cover
+        # Check whether the number of columns in `selected_features' is equal to
+        # num_features selected by solving set cover
         self.assertEqual(selected_features.shape[1], 2)
 
         # Verify the selected feature
@@ -177,7 +177,7 @@ class TestText(BaseTest):
              "item4": ["sentence with a lot of repeated common words and more words to increase frequency"],
              "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
 
-        ### Labels with a single column with all ones ###
+        # Labels with a single column with all ones
         labels_single_col = pd.DataFrame({"item1": [1, 0, 0, 0, 0], "item2": [1, 0, 0, 0, 0], "item3": [1, 0, 0, 0, 0],
                                           "item4": [1, 0, 0, 0, 0], "item5": [1, 0, 0, 0, 0]})
 
@@ -198,7 +198,7 @@ class TestText(BaseTest):
         # Verify greedy selects the item1
         self.assertListEqual(list(selected_features_single_col.columns), ['item1'])
 
-        ### Labels for infeasible instance ###
+        # Labels for infeasible instance
         labels_infeasible = pd.DataFrame({"item1": [0, 0, 0, 0, 0], "item2": [0, 0, 0, 0, 0], "item3": [0, 0, 0, 0, 0],
                                           "item4": [0, 0, 0, 0, 0], "item5": [0, 0, 0, 0, 0]})
 
@@ -224,7 +224,7 @@ class TestText(BaseTest):
         # Check whether feasible is False
         self.assertFalse(feasible)
 
-        ### Label columns with considerable coverage ###
+        # Label columns with considerable coverage
         labels = pd.DataFrame({"item1": [1, 0, 1, 0, 1], "item2": [0, 1, 0, 1, 1], "item3": [1, 0, 1, 0, 1],
                                "item4": [1, 0, 1, 0, 0], "item5": [0, 1, 0, 1, 1]})
 
