@@ -123,9 +123,9 @@ class ContentSelector:
         self._num_rows = None
         self._num_cols = None
 
-    def run_content_selection(self, input_df: pd.DataFrame, categories: pd.DataFrame, selection_size: int,
-                              featurization_method: TextWiser, optimization_method: str = "exact",
-                              cost_metric: str = "diverse", trials: int = 10) -> List:
+    def run(self, input_df: pd.DataFrame, categories: pd.DataFrame, selection_size: int,
+            featurization_method: TextWiser, optimization_method: str = "exact",
+            cost_metric: str = "diverse", trials: int = 10) -> List:
 
         """Run content selection algorithm.
 
@@ -618,11 +618,11 @@ class _TextBased(_BaseSupervisedSelector):
         # Call fit method from parent class _BaseSupervisedSelector
         super().fit(data, labels)
 
-        selected_indexes = self.content_selector.run_content_selection(data, labels,
-                                                                       self.selection_size,
-                                                                       self.featurization_method,
-                                                                       self.optimization_method,
-                                                                       self.cost_metric)
+        selected_indexes = self.content_selector.run(data, labels,
+                                                     self.selection_size,
+                                                     self.featurization_method,
+                                                     self.optimization_method,
+                                                     self.cost_metric)
 
         # Set absolute score for each feature
         abs_scores = np.zeros(data.shape[1], dtype=bool)
