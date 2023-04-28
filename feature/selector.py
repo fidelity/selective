@@ -9,7 +9,7 @@ This module defines the public interface of the **Selective Library** for featur
 
 import multiprocessing as mp
 from time import time
-from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional, List
+from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -319,6 +319,8 @@ class SelectionMethod(NamedTuple):
                                       given cost metrics (unicost or diverse).
                                 - t = None: the number of feature computed by solving a set cover problem with
                                       given cost metrics (unicost or diverse).
+                      We need to set the seed for greedy as there is a source of randomness in the initialization of
+                      the Lagrangian multiplier.
 
             * kmeans: This method clusters the text featurization space into k clusters
                       where k is either the solution of the exact unicost/diverse selection, or,

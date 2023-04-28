@@ -7,11 +7,12 @@ import random
 import pandas as pd
 import numpy as np
 from feature.base import _BaseSupervisedSelector
-from feature.utils import Num, Constants
+from feature.utils import Num, Constants, check_true
 from mip import Model, xsum, minimize, maximize, BINARY, INTEGER, OptimizationStatus
 from sklearn.cluster import KMeans
 from scipy import sparse
 from textwiser import TextWiser
+from collections import defaultdict
 
 
 class Data:
@@ -68,7 +69,7 @@ class ContentSelector:
 
     Attributes
     ----------
-    selection_size: int
+    num_features: int
         Number of content/feature to select.
     seed: int
         Random seed.
@@ -79,7 +80,7 @@ class ContentSelector:
     matrix: np.ndarray
         Coverage matrix where each row corresponds to all predefined labels for each category and the columns
         correspond to the content.
-    features: np.ndarray
+    text_embeddings: np.ndarray
         Numeric featurization of content.
 
     References:
@@ -88,7 +89,7 @@ class ContentSelector:
 
     """
 
-    def __init__(self, selection_size: int, seed: int = Constants.default_seed, trials: int = 10,
+    def __init__(self, num_features: int, seed: int = Constants.default_seed, trials: int = 10,
                  verbose: bool = False):
         """ContentSelector
 
@@ -96,7 +97,7 @@ class ContentSelector:
 
        Parameters
        ----------
-        selection_size: int
+        num_features: int
             Maximum number of content to select.
         seed: int, default=123456
             Random seed.
@@ -109,21 +110,21 @@ class ContentSelector:
         # Validate arguments
         self.featurization_method = None
         self.cost_metric = None
-        self._validate_args(selection_size)
+        self._validate_args(num_features)
 
         # Set input arguments
-        self.selection_size = selection_size
+        self.num_features = num_features
         self.seed = seed
         self.trials = trials
-        self.verbose = False
+        self.verbose = verbose
 
         # Initialize class variables
-        self.matrix = None
-        self.features = None
         self._num_rows = None
         self._num_cols = None
+        self.matrix = None
+        self.text_embeddings = None
 
-    def run(self, input_df: pd.DataFrame, categories: pd.DataFrame, selection_size: int,
+    def run(self, input_df: pd.DataFrame, labels: pd.DataFrame, num_features: int,
             featurization_method: TextWiser, optimization_method: str = "exact",
             cost_metric: str = "diverse", trials: int = 10) -> List:
 
@@ -132,12 +133,12 @@ class ContentSelector:
         Parameters
         ----------
         input_df: pd.DataFrame
-            Input data frame with categories and features of content to select from.
+            Input data frame contains text content of features to select from.
 
-        categories: pd.DataFrame
-            Data frame with data that contains categories/labels to be covered.
+        labels: pd.DataFrame
+            Labels is the data frame contains 0/1 label coverage metadata for each feature.
 
-        selection_size: int
+        num_features: int
             Number of feature to select.
 
         featurization_method: TextWiser
@@ -156,12 +157,16 @@ class ContentSelector:
         """
 
         # Initialize arguments
-        self.selection_size = selection_size
+        self.num_features = num_features
         self.featurization_method = featurization_method
         self.cost_metric = cost_metric
 
+        # Process labels
+        self.matrix = labels.to_numpy()
+        self._num_rows, self._num_cols = self.matrix.shape
+
         # Process data
-        self._process_data(input_df, categories, selection_size, optimization_method, cost_metric)
+        self._get_text_embeddings(input_df, num_features, optimization_method, cost_metric)
 
         if optimization_method == "exact":
             selected = self._select_multi_level_optimization()
@@ -179,24 +184,18 @@ class ContentSelector:
 
         return selected
 
-    def _process_data(self, input_df: pd.DataFrame, categories: pd.DataFrame, selection_size: int,
-                      optimization_method: str, cost_metric: str) -> NoReturn:
-        """_process_data
-        We have implemented two versions of this function. In the version here, the categories parameter
-        actually refers to the labels (rather than categories) to be covered. It generates features for input data
-        using a specified featurization method, and creates a matrix where each row corresponds to a label and each
+    def _get_text_embeddings(self, input_df: pd.DataFrame,
+                             num_features: int,
+                             optimization_method: str,
+                             cost_metric: str) -> NoReturn:
+        """
+        It generates features for input data using a specified featurization method
         column corresponds to a feature.
-        The version of code for generating labels from categories has been moved to utils.py.
-
-        Parameters
         ----------
         input_df: pd.DataFrame
-            Input data frame with categories and features of content to select from.
+            Input data frame contains text content of features to select from.
 
-        categories: pd.DataFrame
-            Data frame that contains categories/labels to be covered.
-
-        selection_size: int
+        num_features: int
             Number of feature to select.
 
         optimization_method: str
@@ -212,43 +211,38 @@ class ContentSelector:
         No return
        --------
         """
-        self.matrix = categories.to_numpy()
-        self._num_rows, self._num_cols = self.matrix.shape
+        is_featurization_needed = defaultdict(lambda: True)
+        is_featurization_needed[(False, "random", "diverse")] = False
+        is_featurization_needed[(True, "random", "unicost")] = False
+        is_featurization_needed[(False, "random", "unicost")] = False
+        is_featurization_needed[(True, "greedy", "unicost")] = False
+        is_featurization_needed[(False, "greedy", "unicost")] = False
+        is_featurization_needed[(False, "exact", "unicost")] = False
+        is_featurization_needed[(True, "exact", "unicost")] = False
 
-        # option_map contains the tuple of optimization_method, selection_size, and cost_metric
-        # that do not need featurization method
-        option_map = {
-            ("random", True, "diverse"): lambda: None,
-            ("random", False, "unicost"): lambda: None,
-            ("random", True, "unicost"): lambda: None,
-            ("greedy", False, "unicost"): lambda: None,
-            ("greedy", True, "unicost"): lambda: None,
-            ("exact", True, "unicost"): lambda: None,
-            ("exact", False, "unicost"): lambda: None
-        }
+        config = (num_features is None, optimization_method, cost_metric)
 
-        # If the entry of in the dictionary matches below argument set, then corresponding lambda function is retrieved
-        options = option_map.get((optimization_method, selection_size is not None, cost_metric))
-        if options:
-            options()
-        else:
+        if is_featurization_needed[config]:
             feature_column = self.featurization_method.fit_transform(input_df)
-            self.features = np.array([eval(txt_feature) if isinstance(txt_feature, str)
-                                      else txt_feature for txt_feature in feature_column.tolist()])
-            if len(self.features) != self._num_cols:
-                raise ValueError(f"Process Data Error: features size ({len(self.features)}) should match the number"
-                                 f"of columns ({self._num_cols})")
-        if self.matrix.ndim != 2:
-            raise ValueError("Process Data Error: matrix should 2D")
-        if self.selection_size is not None and self.selection_size > self._num_cols:
-            raise ValueError("Process Data Error: selection_size cannot exceed num columns")
+            self.text_embeddings = np.array([eval(txt_feature) if isinstance(txt_feature, str)
+                                             else txt_feature for txt_feature in feature_column.tolist()])
+            check_true(len(self.text_embeddings) == self._num_cols, ValueError(f"Process Data Error: "
+                                                                               f"text embeddings size "
+                                                                               f"({len(self.text_embeddings)}) "
+                                                                               f"should match the number of columns"
+                                                                               f" ({self._num_cols})"))
+
+        check_true(self.matrix.ndim == 2, ValueError("Process Data Error: matrix should 2D"))
+        if self.num_features is not None:
+            check_true(self.num_features <= self._num_cols,
+                       ValueError("Process Data Error: selection_size cannot exceed num columns"))
 
     def _select_multi_level_optimization(self) -> List:
 
         unicost = np.ones(self._num_cols)
         data = Data(cost=unicost, matrix=self.matrix)
 
-        if self.selection_size is None:
+        if self.num_features is None:
             if self.cost_metric == "unicost":
                 selected = self._solve_set_cover(data)
             else:
@@ -271,7 +265,7 @@ class ContentSelector:
                 cost = cost_diversity
                 k = len(selected)
 
-            if self.selection_size < k:
+            if self.num_features < k:
                 data = Data(cost=cost, matrix=self.matrix)
                 selected = self._solve_max_cover(data, selected)
             else:
@@ -291,7 +285,7 @@ class ContentSelector:
                  the next smallest non-zero distance (NEXT_S_DIS).
         """
         kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
-        distances = kmeans.fit_transform(self.features)
+        distances = kmeans.fit_transform(self.text_embeddings)
 
         ### NEXT_S_DIS
         for i in range(self._num_cols):
@@ -331,9 +325,9 @@ class ContentSelector:
         cost = np.ones(self._num_cols) if self.cost_metric == "unicost" else self._get_diversity_cost(self._num_cols)
         data = Data(cost=cost, matrix=self.matrix)
         selection = self._solve_set_cover(data)
-        selection_size = len(selection)
+        num_features = len(selection)
 
-        return cost, selection_size
+        return cost, num_features
 
     def _get_closest_to_centroids(self, kmeans: KMeans) -> List:
         df = pd.DataFrame({"cluster": kmeans.labels_})
@@ -343,7 +337,7 @@ class ContentSelector:
             mask = df["cluster"] == c
 
             # Squared error to cluster centroid
-            dist = np.sum((self.features[mask] - kmeans.cluster_centers_[c]) ** 2, axis=1)
+            dist = np.sum((self.text_embeddings[mask] - kmeans.cluster_centers_[c]) ** 2, axis=1)
 
             # Create column in df
             df.loc[mask, "dist_to_centroid"] = dist
@@ -354,13 +348,13 @@ class ContentSelector:
         return kmeans_selected
 
     def _select_kmeans(self) -> List:
-        if self.selection_size is None:
+        if self.num_features is None:
             _, selected_size = self._get_selection_size()
         else:
-            selected_size = self.selection_size
+            selected_size = self.num_features
 
         kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
-        kmeans.fit(self.features)
+        kmeans.fit(self.text_embeddings)
         selected = self._get_closest_to_centroids(kmeans)
         num_row_covered = self._get_num_row_covered(selected)
 
@@ -377,15 +371,15 @@ class ContentSelector:
         return selected
 
     def _select_greedy(self) -> List:
-        if self.selection_size is None:
-            cost, selection_size = self._get_selection_size()
+        if self.num_features is None:
+            cost, num_features = self._get_selection_size()
         else:
             if self.cost_metric == "unicost":
                 cost = np.ones(self._num_cols)
-                selection_size = self.selection_size
+                num_features = self.num_features
             else:
                 diversity_cost = self._get_diversity_cost(self._num_cols)
-                selection_size = self.selection_size
+                num_features = self.num_features
                 cost = diversity_cost
 
         # Compressed sparse column (transposed for convenience)
@@ -405,7 +399,7 @@ class ContentSelector:
         size = sum(selected)
 
         # While there are uncovered rows and below selection size
-        while np.count_nonzero(iuncovered) > 0 and size < selection_size:
+        while np.count_nonzero(iuncovered) > 0 and size < num_features:
 
             # Faster than indexing, made possible by sparse_col.dot
             mu = sparse_col.dot(iuncovered.astype(int)).astype(float)
@@ -428,8 +422,8 @@ class ContentSelector:
 
             iuncovered = ~np.logical_or(~iuncovered, self.matrix[:, inewcolumn])
 
-        if size == selection_size:
-            print("Warning: max greedy reached selection size", selection_size)
+        if size == num_features:
+            print("Warning: max greedy reached selection size", num_features)
 
         # Solution
         selected = list(selected.nonzero()[0])
@@ -453,19 +447,19 @@ class ContentSelector:
         best_selected = []
         best_covered = 0
 
-        if self.selection_size is None:
-            _, self.selection_size = self._get_selection_size()
+        if self.num_features is None:
+            _, self.num_features = self._get_selection_size()
 
         for t in range(trials):
-            # Select a sample of selection_size without repetition
+            # Select a sample of num_features without repetition
             selected = []
-            while len(selected) < self.selection_size and self._num_cols is not None:
+            while len(selected) < self.num_features and self._num_cols is not None:
                 i = random.randint(0, self._num_cols - 1)
                 while i in selected:
                     i = random.randint(0, self._num_cols -1)
                 selected.append(i)
 
-            # Count covered categories
+            # Count covered labels
             num_row_covered = self._get_num_row_covered(selected)
             if num_row_covered > best_covered:
                 best_covered = num_row_covered
@@ -476,7 +470,7 @@ class ContentSelector:
         coverage = num_row_covered / self._num_rows
 
         if self.verbose:
-            print("\nRANDOM SELECTION:", self.selection_size, "columns to cover rows ", self._num_rows)
+            print("\nRANDOM SELECTION:", self.num_features, "columns to cover rows ", self._num_rows)
             print("=" * 40)
             print("SIZE:", len(best_selected),
                   "reduction: {:.2f}".format((self._num_cols - len(best_selected)) / self._num_cols))
@@ -549,7 +543,7 @@ class ContentSelector:
                 model.add_constr(x[i] == 0)
 
         # Constraint: limit number of selected to max_cover_size
-        model.add_constr(xsum(x[i] for i in data.X) <= self.selection_size)
+        model.add_constr(xsum(x[i] for i in data.X) <= self.num_features)
 
         # Objective: maximize "row" coverage (not the whole coverage of 1s)
         model.objective = maximize(xsum(is_row_covered[row] for row in data.rows))
@@ -578,9 +572,9 @@ class ContentSelector:
         return selected
 
     @staticmethod
-    def _validate_args(selection_size):
-        if selection_size is not None:
-            if selection_size <= 0:
+    def _validate_args(num_features):
+        if num_features is not None:
+            if num_features <= 0:
                 raise ValueError("Selection size must be greater than zero.")
 
 
@@ -604,22 +598,18 @@ class _TextBased(_BaseSupervisedSelector):
         # Set input arguments
         self.num_features = num_features
         self.featurization_method = featurization_method
-        self.selection_size = num_features
         self.optimization_method = optimization_method
         self.cost_metric = cost_metric
         self.trials = trials
 
         # Class variables
-        self.content_selector = ContentSelector(selection_size=num_features,
+        self.content_selector = ContentSelector(num_features=num_features,
                                                 seed=self.seed, trials=trials, verbose=False)
 
     def fit(self, data: pd.DataFrame, labels: pd.DataFrame) -> NoReturn:
 
-        # Call fit method from parent class _BaseSupervisedSelector
-        super().fit(data, labels)
-
         selected_indexes = self.content_selector.run(data, labels,
-                                                     self.selection_size,
+                                                     self.num_features,
                                                      self.featurization_method,
                                                      self.optimization_method,
                                                      self.cost_metric)
@@ -704,8 +694,8 @@ class _TextBased(_BaseSupervisedSelector):
 #
 #     return ax
 
-
-# def _process_data(input_df: pd.DataFrame, categories: List[str], feature_column: str, selection_size: int) \
+# # _process_data() generate labels from categories.
+# def _process_data(input_df: pd.DataFrame, categories: List[str], feature_column: str, num_features: int) \
 #         -> Tuple[np.ndarray, np.ndarray]:
 #     # Get label for each row based on input categories
 #     labels_list = []
@@ -731,6 +721,6 @@ class _TextBased(_BaseSupervisedSelector):
 #     assert (len(features) == num_cols), \
 #         f"Process Data Error: features size ({len(features)}) " \
 #         f"should match the number of columns ({num_cols})"
-#     assert (selection_size <= num_cols), "Process Data Error: selection_size cannot exceed num columns"
+#     assert (num_features <= num_cols), "Process Data Error: num_features cannot exceed num columns"
 #
 #     return matrix, features

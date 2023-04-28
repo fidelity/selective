@@ -125,11 +125,11 @@ data = pd.DataFrame({"article_1": ["article text here"],
 
 # Labels to denote 0/1 coverage metadata for each article 
 # across three labels, e.g., sports, international, entertainment    
-labels = pd.DataFrame({"article_1": [1, 1, 0],
-                       "article_2": [0, 1, 0],
-                       "article_3": [0, 0, 1],
-                       "article_4": [1, 0, 1]},
-                       index=["label_1", "label_2", "label_3"])
+labels = pd.DataFrame({"article_1": [1, 1, 0, 1],
+                       "article_2": [0, 1, 0, 0],
+                       "article_3": [0, 0, 1, 0],
+                       "article_4": [0, 0, 1, 1]},
+                      index=["label_1", "label_2", "label_3", "label_4"])
 
 # TextWiser featurization method to create text embeddings
 textwiser = TextWiser(Embedding.TfIdf(), Transformation.NMF(n_components=20))

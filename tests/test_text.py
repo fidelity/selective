@@ -12,6 +12,37 @@ from textwiser import TextWiser, Embedding, Transformation
 
 class TestText(BaseTest):
 
+    # Verify test usage example
+    def test_usage_example(self):
+        data = pd.DataFrame({"article_1": ["article text here"],
+                             "article_2": ["article text here"],
+                             "article_3": ["article text here"],
+                             "article_4": ["article text here"]})
+        labels = pd.DataFrame({"article_1": [1, 1, 0, 1],
+                               "article_2": [0, 1, 0, 0],
+                               "article_3": [0, 0, 1, 0],
+                               "article_4": [0, 0, 1, 1]},
+                              index=["label_1", "label_2", "label_3", "label_4"])
+
+        # Verify that the number of columns is data and labels match
+        self.assertEqual(data.shape[1], labels.shape[1])
+
+        # Fix the random seed
+        seed = 3000
+        np.random.seed(seed)
+
+        method = SelectionMethod.TextBased(num_features=2,
+                                           optimization_method="random",
+                                           cost_metric="unicost",
+                                           trials=1)
+
+        selector = Selective(method, seed=seed)
+        selector.fit(data, labels)
+        selected_features = selector.transform(data)
+
+        # Verify the selected indices
+        self.assertListEqual(list(selected_features.columns), ['article_1', 'article_3'])
+
     ################################################
     ########## Tests for random selection ##########
     ################################################
@@ -74,7 +105,7 @@ class TestText(BaseTest):
         best_selected_features = best_selector.transform(data)
 
         # Verify the selected indices
-        self.assertListEqual(list(best_selector.transform(data).columns), ['item2', 'item3', 'item5'])
+        self.assertListEqual(list(best_selected_features.columns), ['item2', 'item3', 'item5'])
 
     # Verify selection for the Random method, unicost, and none number of features
     def test_text_based_random_unicost(self):
