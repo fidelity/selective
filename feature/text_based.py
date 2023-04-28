@@ -618,17 +618,17 @@ class _TextBased(_BaseSupervisedSelector):
         # Call fit method from parent class _BaseSupervisedSelector
         super().fit(data, labels)
 
-        selected_indicies = self.content_selector.run_content_selection(data, labels, self.selection_size,
+        selected_indexes = self.content_selector.run_content_selection(data, labels, self.selection_size,
                                                                         self.featurization_method,
                                                                         self.optimization_method, self.cost_metric)
 
         # Set absolute score for each feature
         abs_scores = np.zeros(data.shape[1], dtype=bool)
-        abs_scores[selected_indicies] = True
+        abs_scores[selected_indexes] = True
         self.abs_scores = abs_scores
 
         # Set number of selected features
-        self.num_features = len(selected_indicies)
+        self.num_features = len(selected_indexes)
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
 
