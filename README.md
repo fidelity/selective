@@ -109,23 +109,7 @@ print(stats_df)
 ```
 
 ## Text-based Selective
-This example shows how to use text-based selection. 
-
-In this scenario, we would like to select a subset of articles that is most diverse and covers a range of topics. 
-
-### Input
-* We represent the dataset as a pandas DataFrame with 5 articles (each article is a feature, 
-and each row represents a feature)
-* We also have a corresponding labels DataFrame, which is a matrix where each column represents an article. 
-* TextBased parameters:
-  - *num_features*: An integer representing the number of text features to be used in the selection process. 
-  - *featurization_method*: A text embedding method to transform the text features into numerical vectors using 
-    [TextWiser](https://github.com/fidelity/textwiser). 
-  - *optimization_method*: The optimization method used to select the subset of items (default sets as "exact"). 
-  - *cost_metric*: The cost metric used to evaluate the quality of the selected subset of items 
-    (default sets as "diverse").
-  - *trials*: The number of times to run the selection process (default sets as 10).
-
+This example shows how to use text-based selection. In this scenario, we would like to select a subset of articles that is most diverse in the text embedding space and covers a range of topics. 
 
 ```python
 # Import Selective and TextWiser
@@ -133,23 +117,27 @@ import pandas as pd
 from feature.selector import Selective, SelectionMethod
 from textwiser import TextWiser, Embedding, Transformation
 
-# Data with the text content of each article  
+# Data with the text content of each article
 data = pd.DataFrame({"article_1": ["article text here"],
                      "article_2": ["article text here"],
                      "article_3": ["article text here"],
                      "article_4": ["article text here"]})
 
-# Labels to denote 0/1 coverage of metadata for each article  
+# Labels to denote 0/1 coverage metadata for each article 
+# across three labels, e.g., sports, international, entertainment    
 labels = pd.DataFrame({"article_1": [1, 1, 0],
-                       "article_2": [1, 1, 0],
+                       "article_2": [0, 1, 0],
                        "article_3": [0, 0, 1],
-                       "article_4": [1, 1, 0]},
+                       "article_4": [1, 0, 1]},
                        index=["label_1", "label_2", "label_3"])
 
 # TextWiser featurization method to create text embeddings
 textwiser = TextWiser(Embedding.TfIdf(), Transformation.NMF(n_components=20))
 
 # Text-based selection
+# The goal is to select a subset of articles 
+# that is most diverse in the text embedding space of articles
+# and covers the most labels in each topic
 selector = Selective(SelectionMethod.TextBased(num_features=2, featurization_method=textwiser))
 
 # Feature reduction
