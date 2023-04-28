@@ -178,8 +178,8 @@ class TestText(BaseTest):
              "item5": ["more frequent words with a valid vector and more words to increase frequency"]})
 
         ### Labels with a single column with all ones ###
-        labels_single_col = pd.DataFrame({"item1": [1, 1, 1, 1, 1], "item2": [0, 0, 0, 0, 0], "item3": [0, 0, 0, 0, 0],
-                                          "item4": [0, 0, 0, 0, 0], "item5": [0, 0, 0, 0, 0]})
+        labels_single_col = pd.DataFrame({"item1": [1, 0, 0, 0, 0], "item2": [1, 0, 0, 0, 0], "item3": [1, 0, 0, 0, 0],
+                                          "item4": [1, 0, 0, 0, 0], "item5": [1, 0, 0, 0, 0]})
 
         method_single_col = SelectionMethod.TextBased(num_features=1,
                                                       optimization_method="greedy",
@@ -196,7 +196,7 @@ class TestText(BaseTest):
         self.assertTrue(isinstance(selected_features_single_col, pd.DataFrame))
 
         # Verify greedy selects the item1
-        self.assertListEqual(list(selected_features_single_col.columns), ["item1"])
+        self.assertListEqual(list(selected_features_single_col.columns), ['item1'])
 
         ### Labels for infeasible instance ###
         labels_infeasible = pd.DataFrame({"item1": [0, 0, 0, 0, 0], "item2": [0, 0, 0, 0, 0], "item3": [0, 0, 0, 0, 0],
