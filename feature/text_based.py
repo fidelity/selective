@@ -83,8 +83,8 @@ class ContentSelector:
         Numeric featurization of content.
 
     References:
-    [1] Kadioglu et al., Optimized Item Selection to Boost Exploration for Recommender Systems, CPAIOR'21
-    [2] Kleynhans et al. Active Learning Meets Optimized Item Selection, DSO@IJCAI'21
+    [1] Kadioglu et. al., Optimized Item Selection to Boost Exploration for Recommender Systems, CPAIOR'21
+    [2] Kleynhans et. al., Active Learning Meets Optimized Item Selection, DSO@IJCAI'21
 
     """
 
