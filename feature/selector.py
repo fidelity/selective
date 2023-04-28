@@ -283,7 +283,7 @@ class SelectionMethod(NamedTuple):
 
         References:
         [1] Kadioglu et. al., Optimized Item Selection to Boost Exploration for Recommender Systems, CPAIOR'21
-        [2] Kleynhans et. al. Active Learning Meets Optimized Item Selection, DSO@IJCAI'21
+        [2] Kleynhans et. al., Active Learning Meets Optimized Item Selection, DSO@IJCAI'21
 
         Randomness:
         Behavior for #TODO methods is non-deterministic, depends on seed.
@@ -369,7 +369,6 @@ class SelectionMethod(NamedTuple):
         optimization_method: str = "exact"
         cost_metric: str = "diverse"
         trials: int = 10
-        #seed: int = Constants.default_seed
 
         def _validate(self):
             if self.num_features is not None:
