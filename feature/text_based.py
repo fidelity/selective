@@ -189,8 +189,7 @@ class ContentSelector:
                              optimization_method: str,
                              cost_metric: str) -> NoReturn:
         """
-        It generates features for input data using a specified featurization method
-        column corresponds to a feature.
+        It performs featurization for input data using a specified featurization method.
         ----------
         input_df: pd.DataFrame
             Input data frame contains text content of features to select from.
@@ -199,11 +198,11 @@ class ContentSelector:
             Number of feature to select.
 
         optimization_method: str
-            Code prevents performing featurization for the case mentioned in 'option_map' dictionary with
-            random, greedy and exact optimization.
+            Code prevents performing featurization for the cases with False 'config' contains
+            random, greedy or exact optimization methods.
 
         cost_metric: str
-            Code prevents performing featurization for the case mentioned in 'option_map' dictionary with
+            Code prevents performing featurization for the cases with False 'config' contains
             unicost or diverse cost metric.
 
         Returns
@@ -226,11 +225,6 @@ class ContentSelector:
             feature_column = self.featurization_method.fit_transform(input_df)
             self.text_embeddings = np.array([eval(txt_feature) if isinstance(txt_feature, str)
                                              else txt_feature for txt_feature in feature_column.tolist()])
-            check_true(len(self.text_embeddings) == self._num_cols, ValueError(f"Process Data Error: "
-                                                                               f"text embeddings size "
-                                                                               f"({len(self.text_embeddings)}) "
-                                                                               f"should match the number of columns"
-                                                                               f" ({self._num_cols})"))
 
         check_true(self.matrix.ndim == 2, ValueError("Process Data Error: matrix should 2D"))
         if self.num_features is not None:
@@ -277,8 +271,8 @@ class ContentSelector:
     def _get_diversity_cost(self, selected_size: int) -> List[float]:
         """
         diversity cost:
-            there is a situation where the minimum distance between each two features is zero. This situation may occur
-             if the features are very similar or if there are a limited number of features.
+            there is a situation where the minimum distance between each of the two features is zero. This situation may
+             occur if the features are very similar or if there are a limited number of features.
               When this happens, the cost becomes zero. There are two ways to handle this situation:
                 - add dummy cost to diversity cost (DUMMY)
                 - check if any of the distances in the distances matrix is zero, and if so, replace it with
@@ -308,8 +302,7 @@ class ContentSelector:
         return diversity_cost
 
     def _get_num_row_covered(self, selected) -> int:
-        if self.matrix is None:
-            raise ValueError("matrix is not initialized")
+        check_true(self.matrix is not None, ValueError("matrix is not initialized"))
 
         # Create indicator to count number of covered rows
         row_covered = np.sum(self.matrix[:, selected], axis=1)
@@ -500,8 +493,8 @@ class ContentSelector:
         # Solve
         model.verbose = False
         model.optimize()
-        if model.status != OptimizationStatus.OPTIMAL:
-            raise ValueError("Max Cover Error: optimal solution not found.")
+        check_true(model.status == OptimizationStatus.OPTIMAL, ValueError("Max Cover Error: "
+                                                                          "optimal solution not found."))
 
         # Solution
         selected = [i for i in data.X if float(x[i].x) >= 0.99]
@@ -566,7 +559,8 @@ class ContentSelector:
             print("STATUS:", model.status)
             print("=" * 40)
 
-        assert model.status == OptimizationStatus.OPTIMAL
+        check_true(model.status == OptimizationStatus.OPTIMAL, ValueError("Max Cover Error: "
+                                                                          "optimal solution not found."))
 
         # Return
         return selected

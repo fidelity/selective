@@ -784,7 +784,7 @@ class TestText(BaseTest):
                                                optimization_method="invalid",
                                                cost_metric="diverse")
 
-            selector = Selective(method)
+            Selective(method)
 
     def test_text_invalid_cost_metric(self):
 
@@ -795,7 +795,7 @@ class TestText(BaseTest):
                                                optimization_method="random",
                                                cost_metric="invalid")
 
-            selector = Selective(method)
+            Selective(method)
 
     def test_text_invalid_featurization(self):
         with self.assertRaises(ValueError):
@@ -803,4 +803,4 @@ class TestText(BaseTest):
                                                optimization_method="exact",
                                                cost_metric="invalid")
 
-            selector = Selective(method)
+            Selective(method)

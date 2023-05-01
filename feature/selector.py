@@ -124,7 +124,8 @@ class SelectionMethod(NamedTuple):
 
         L2 Ridge Regularization:
         L2 norm adds the penalty term (α∑wi^2) to the loss function.
-        Since the coefficients are squared in the penalty expression, it forces the coefficient to be spread out more equally.
+        Since the coefficients are squared in the penalty expression, it forces the coefficient
+        to be spread out more equally.
         Correlated features end up receiving similar coefficients, which can lead to stable results.
         Compared to L1 models, coefficients do not differ as much on small delta changes
         In L2 regularization, a predictive feature gets a non-zero coefficient,
@@ -225,7 +226,8 @@ class SelectionMethod(NamedTuple):
             check_true(self.num_features > 0, ValueError("Num features must be greater than zero."))
             if isinstance(self.num_features, float):
                 check_true(self.num_features <= 1, ValueError("Num features ratio must be between [0..1]."))
-            check_true(self.method in ["anova", "chi_square", "mutual_info", "variance_inflation"], # "maximal_info" dropped
+            # "maximal_info" dropped
+            check_true(self.method in ["anova", "chi_square", "mutual_info", "variance_inflation"],
                        ValueError("Statistical method can only be anova, chi_square, or mutual_info."))
 
     class TreeBased(NamedTuple):
@@ -274,6 +276,7 @@ class SelectionMethod(NamedTuple):
         In this context, each column/feature in X_textual can be referred to an item with textual description.
         Similarly, Y represents the labels that are covered by each item.
         In the test_text.py, X_textual defines as data and Y defines as labels.
+        Number of columns in X_textual and Y should match.
 
         The paper [1] provides a multi-objective optimization problem that is based on
         set covering formulation. The idea is to select the minimum number of items from X_textual that
@@ -286,7 +289,15 @@ class SelectionMethod(NamedTuple):
         [2] Kleynhans et. al., Active Learning Meets Optimized Item Selection, DSO@IJCAI'21
 
         Randomness:
-        Behavior for #TODO methods is non-deterministic, depends on seed.
+        Behavior for non-deterministic optimization methods depends on seed. Below are the sources of randomness in
+        each optimization method:
+            * random needs to set a seed
+            * greedy needs to set a seed as there is a source of randomness in the initialization of
+              the Lagrangian multiplier.
+            * kmeans needs to set a seed since it uses random initialization of cluster centroids.
+              Even with the same random seed, the starting positions of centroids can differ due to various factors.
+              Therefore, it also needs to set a random seed of the NumPy and Scikit-Learn packages.
+            * exact needs to set a seed in the case of calculating diversity cost.
 
         Attributes
         ----------
@@ -303,7 +314,7 @@ class SelectionMethod(NamedTuple):
                 - Greedy optimization with num_features = num_features or None and cost_metric = "unicost"
 
         optimization_method : str, optional
-            * random: This method finds a random solution by performing a random selection of items/features from
+            * random: This method finds a random solution by performing a random selection of features from
             the dataset of size selected_size without repetition for a fixed number of trials.
                            The number of selected features (num_features = t):
                                 - t = number of features defined by user.
@@ -312,19 +323,17 @@ class SelectionMethod(NamedTuple):
                                 - t = None: the number of feature computed by solving a set cover problem with
                                       given cost metrics (unicost or diverse).
 
-            * greedy: This method finds a greedy solution by adding items step by step using a greedy heuristic
+            * greedy: This method finds a greedy solution by adding features step by step using a greedy heuristic
                       that covers the most labels.
                       The number of selected features (num_features = t):
                                 - t = number of features defined by user.
                                       given cost metrics (unicost or diverse).
                                 - t = None: the number of feature computed by solving a set cover problem with
                                       given cost metrics (unicost or diverse).
-                      We need to set the seed for greedy as there is a source of randomness in the initialization of
-                      the Lagrangian multiplier.
 
             * kmeans: This method clusters the text featurization space into k clusters
                       where k is either the solution of the exact unicost/diverse selection, or,
-                      the given num_features. Then, items close to the centroids are selected.
+                      the given num_features. Then, features close to the centroids are selected.
                       The number of selected features (num_features = t):
                                 - t = number of features defined by user.
                                       The cost_metric input argument can be ignored in this case. It means the result
@@ -353,16 +362,16 @@ class SelectionMethod(NamedTuple):
                                      to solve the second set cover problem to find most diverse features.
 
         cost_metric : str, optional;
-            * unicost: Each item/feature incurs a cost of one when included in the selection.
+            * unicost: Each feature incurs a cost of one when included in the selection.
                         For random this parameter does not impact.
-            * diverse: Each item/feature incurs a cost equivalent to the distance to its closest centroid
-                       in latent space obtained from the text featurization of items.
+            * diverse: Each feature incurs a cost equivalent to the distance to its closest centroid
+                       in latent space obtained from the text featurization of content.
                        The centroids are found by clustering the text featurization space into k-clusters,
                        where k is either the solution of the exact unicost selection, or,
                        the given num_features.
 
-       trials: int;
-            The number of random trials to perform. Defaults to 1.
+       trials: int, optional;
+            The number of random trials to perform.
         """
 
         # Default values
