@@ -190,6 +190,8 @@ class ContentSelector:
                              cost_metric: str) -> NoReturn:
         """
         It performs featurization for input data using a specified featurization method.
+        There are some configurations that might not require featurization.
+
         ----------
         input_df: pd.DataFrame
             Input data frame contains text content of features to select from.
@@ -210,6 +212,8 @@ class ContentSelector:
         No return
        --------
         """
+
+        # For these configurations, text featurization is not needed
         is_featurization_needed = defaultdict(lambda: True)
         is_featurization_needed[(False, "random", "diverse")] = False
         is_featurization_needed[(True, "random", "unicost")] = False
@@ -220,7 +224,6 @@ class ContentSelector:
         is_featurization_needed[(True, "exact", "unicost")] = False
 
         config = (num_features is None, optimization_method, cost_metric)
-
         if is_featurization_needed[config]:
             feature_column = self.featurization_method.fit_transform(input_df)
             self.text_embeddings = np.array([eval(txt_feature) if isinstance(txt_feature, str)
@@ -271,12 +274,16 @@ class ContentSelector:
     def _get_diversity_cost(self, selected_size: int) -> List[float]:
         """
         diversity cost:
-            there is a situation where the minimum distance between each of the two features is zero. This situation may
-             occur if the features are very similar or if there are a limited number of features.
-              When this happens, the cost becomes zero. There are two ways to handle this situation:
+            there is a situation where the minimum distance between each of the two features is zero.
+            This situation may occur if the features are very similar or if there are a limited number of features.
+            When this happens, the cost becomes zero.
+
+            There are two ways to handle this situation:
                 - add dummy cost to diversity cost (DUMMY)
                 - check if any of the distances in the distances matrix is zero, and if so, replace it with
                  the next smallest non-zero distance (NEXT_S_DIS).
+
+            By default, NEXT_S_DIS is used
         """
         kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
         distances = kmeans.fit_transform(self.text_embeddings)
@@ -572,7 +579,7 @@ class ContentSelector:
                 raise ValueError("Selection size must be greater than zero.")
 
 
-# TODO not sure if this should use _BaseDispatcher or not.
+# TODO should this use _BaseDispatcher or not.
 class _TextBased(_BaseSupervisedSelector):
     """
     The fit() method is responsible for featurization and optimization.
@@ -584,7 +591,7 @@ class _TextBased(_BaseSupervisedSelector):
                  featurization_method: TextWiser,
                  optimization_method: str,
                  cost_metric: str,
-                 trials: int = 10):
+                 trials: int):
 
         # Call constructor of parent class _BaseSupervisedSelector
         super().__init__(seed)
@@ -622,6 +629,37 @@ class _TextBased(_BaseSupervisedSelector):
         return self.get_top_k(data, self.abs_scores)
 
 
+def _process_category_data(input_df: pd.DataFrame, categories: List[str], feature_column: str, num_features: int) \
+        -> Tuple[np.ndarray, np.ndarray]:
+    # Get label for each row based on input categories
+    labels_list = []
+    for index, row in input_df.iterrows():
+        labels = []
+        for c in categories:
+            l = c + " " + str(row[c]).replace("\n", " ")
+            labels.append(l)
+        labels_list.append(" | ".join(labels))
+    input_df["labels"] = labels_list
+
+    # Matrix
+    matrix = (input_df.labels.str.split('|', expand=True)
+                   .stack()
+                   .str.get_dummies()
+                   .sum(level=0)).T.values
+
+    num_rows, num_cols = matrix.shape
+
+    features = np.array([eval(l) if isinstance(l, str) else l for l in input_df[feature_column].tolist()])
+
+    check_true(matrix.ndim == 2, ValueError("Process Data Error: matrix should 2D"))
+    check_true(len(features) == num_cols, ValueError(f"Process Data Error: features size ({len(features)}) " +
+                                                     f"should match the number of columns ({num_cols})"))
+    check_true(num_features <= num_cols, ValueError("Process Data Error: num_features cannot exceed num columns"))
+
+    return matrix, features
+
+
+# # requires kmeans and matplotlib
 # def plot_selection(name: str, embedding: Union[List[List], np.ndarray], selected: List,
 #                    n_clusters: int = None, kmeans_n_init: int = 100, seed: int = 123456,
 #                    selection_c: str = 'blue', centroid_marker: str = 'x', centroid_c: str = 'r',
@@ -636,7 +674,7 @@ class _TextBased(_BaseSupervisedSelector):
 #     # embedding: Union[List[List], np.ndarray]
 #     #     2-D embedding for each content item created using T-SNE, UMAP or similar.
 #     # selected: List
-#     #     Indices of selected content.
+#     #     sIndice of selected content.
 #     # n_clusters: int, default=None
 #     #     Number of K-means clusters to fit. Cluster centroids are overlayed on scatter plot if not None.
 #     # kmeans_n_init: int, default=100
@@ -687,34 +725,3 @@ class _TextBased(_BaseSupervisedSelector):
 #         plt.savefig(save_fig_name)
 #
 #     return ax
-
-# # _process_data() generate labels from categories.
-# def _process_data(input_df: pd.DataFrame, categories: List[str], feature_column: str, num_features: int) \
-#         -> Tuple[np.ndarray, np.ndarray]:
-#     # Get label for each row based on input categories
-#     labels_list = []
-#     for index, row in input_df.iterrows():
-#         labels = []
-#         for c in categories:
-#             l = c + " " + str(row[c]).replace("\n", " ")
-#             labels.append(l)
-#         labels_list.append(" | ".join(labels))
-#     input_df["labels"] = labels_list
-#
-#     # Matrix
-#     matrix = (input_df.labels.str.split('|', expand=True)
-#                    .stack()
-#                    .str.get_dummies()
-#                    .sum(level=0)).T.values
-#
-#     num_rows, num_cols = matrix.shape
-#
-#     features = np.array([eval(l) if isinstance(l, str) else l for l in input_df[feature_column].tolist()])
-#
-#     assert (matrix.ndim == 2), "Process Data Error: matrix should 2D"
-#     assert (len(features) == num_cols), \
-#         f"Process Data Error: features size ({len(features)}) " \
-#         f"should match the number of columns ({num_cols})"
-#     assert (num_features <= num_cols), "Process Data Error: num_features cannot exceed num columns"
-#
-#     return matrix, features

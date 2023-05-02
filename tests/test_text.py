@@ -6,6 +6,7 @@ import pandas as pd
 import random
 import sklearn
 from feature.selector import Selective, SelectionMethod
+from feature.text_based import _process_category_data
 from tests.test_base import BaseTest
 from textwiser import TextWiser, Embedding, Transformation
 
@@ -42,6 +43,10 @@ class TestText(BaseTest):
 
         # Verify the selected indices
         self.assertListEqual(list(selected_features.columns), ['article_1', 'article_3'])
+
+    def test_categorical_data(self):
+        # _process_category_data()
+        pass
 
     ################################################
     ########## Tests for random selection ##########

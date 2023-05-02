@@ -10,8 +10,7 @@ the coverage of binary labels by solving a multi-objective optimization problem 
 The library provides:
 
 * Simple to complex selection methods: Variance, Correlation, Statistical, Linear, Tree-based, or Customized.
-* Text based selection using text embedding diversity and metadata coverage. For instructions on how to use Text based
-selection, see [Text-based Selective](#text-based-selective)
+* [Text-based selection](#text-based-selective) to maximize diversity in text embeddings and metadata coverage.
 * Interoperable with data frames as the input.
 * Automated task detection. No need to know what feature selection method works with what machine learning task.
 * Benchmarking multiple selectors using cross-validation with built-in parallelization.
@@ -108,7 +107,7 @@ stats_df = calculate_statistics(score_df, selected_df)
 print(stats_df)
 ```
 
-## Text-based Selective
+## Text-based Selection
 This example shows how to use text-based selection. In this scenario, we would like to select a subset of articles that is most diverse in the text embedding space and covers a range of topics. 
 
 ```python

@@ -270,27 +270,26 @@ class SelectionMethod(NamedTuple):
 
     class TextBased(NamedTuple):
         """
-        # TODO  review the content to double check everything is %100 correct once ALL the implementation is done
         Text-based method for selecting features/columns from (X_textual, Y).
-        Unlike other selection method, this method operates on textual data, X_textual.
-        In this context, each column/feature in X_textual can be referred to an item with textual description.
-        Similarly, Y represents the labels that are covered by each item.
-        In the test_text.py, X_textual defines as data and Y defines as labels.
-        Number of columns in X_textual and Y should match.
+        Unlike other selection methods, this method operates on textual data, X_textual.
+        Unlike other selection methods, this method operates on a matrix of Y labels.
+        In this setting, each column/feature in X_textual is considered to an item with textual description.
+        Similarly, each column in Y corresponds to an item.
+        The rows of Y represents labels that are covered by each item.
+        The number of columns in X_textual and Y should match.
 
-        The paper [1] provides a multi-objective optimization problem that is based on
-        set covering formulation. The idea is to select the minimum number of items from X_textual that
+        By default, the goal is to select the minimum number of items from X_textual that
         maximizes the item diversity of the text featurization of items (controlled by the featurization method)
         while also maximizing the coverage of labels given in Y.
-        If no Y is given, it selects #TODO..
+        It uses a multi-objective optimization based on set covering formulation as shown in [1,2].
 
         References:
         [1] Kadioglu et. al., Optimized Item Selection to Boost Exploration for Recommender Systems, CPAIOR'21
         [2] Kleynhans et. al., Active Learning Meets Optimized Item Selection, DSO@IJCAI'21
 
         Randomness:
-        Behavior for non-deterministic optimization methods depends on seed. Below are the sources of randomness in
-        each optimization method:
+        Behavior for non-deterministic optimization methods depends on seed.
+        Below are the sources of randomness in each optimization method:
             * random needs to set a seed
             * greedy needs to set a seed as there is a source of randomness in the initialization of
               the Lagrangian multiplier.
@@ -304,74 +303,82 @@ class SelectionMethod(NamedTuple):
         num_features : Num, optional
             * If num_feature is integer value, select num_features.
             * If num_feature is None, num_features defines by solving a set cover problem using unicost or diverse
-            The algorithm might choose a less number of features depending on other parameters.
+            Note that, the algorithm might choose a less number of features depending on other parameters.
+            Hence, this parameter should be treated as the "maximum" number of features.
 
         featurization_method :
-            TextWiser object to featurize items/features in X_textual (it is named data in test and this method does not
-            have impact on the following options:
-                - Random optimization with num_features = num_features and cost_metric = "diverse"
-                - Random optimization with num_features = num_features or None and cost_metric = "unicost"
-                - Greedy optimization with num_features = num_features or None and cost_metric = "unicost"
+            TextWiser object to featurize items/features in X_textual.
+            This parameter does not effect the following options:
+                - Random with num_features = num_features and cost_metric = diverse
+                - Random with num_features = num_features or None and cost_metric = unicost
+                - Greedy with num_features = num_features or None and cost_metric = unicost
 
         optimization_method : str, optional
             * random: This method finds a random solution by performing a random selection of features from
-            the dataset of size selected_size without repetition for a fixed number of trials.
-                           The number of selected features (num_features = t):
-                                - t = number of features defined by user.
-                                      The cost_metric input argument can be ignored in this case. It means the
-                                      result of setting cost_metric equal to either unicost or diverse will be the same.
-                                - t = None: the number of feature computed by solving a set cover problem with
-                                      given cost metrics (unicost or diverse).
+                      the dataset of size selected_size without repetition for a fixed number of trials.
+                      The best solution that covers the most labels among all trials is returned.
+                      - num_features = given as input
+                        The cost_metric input argument is ignored in this case.
+                        The result of cost_metric equals to unicost or diverse will be the same.
+                      - num_features = None
+                        The number of features is computed by solving a set cover problem with
+                        the given cost metric.
 
-            * greedy: This method finds a greedy solution by adding features step by step using a greedy heuristic
-                      that covers the most labels.
-                      The number of selected features (num_features = t):
-                                - t = number of features defined by user.
-                                      given cost metrics (unicost or diverse).
-                                - t = None: the number of feature computed by solving a set cover problem with
-                                      given cost metrics (unicost or diverse).
+            * greedy: This method finds a greedy solution by adding features step-by-step
+                      using a greedy heuristic that covers the most labels.
+                      - num_features = given as input
+                        the given cost metric is to select num_features many items.
+                      - num_features = None
+                        The number of features is computed by solving a set cover problem with
+                        the given cost metric.
 
-            * kmeans: This method clusters the text featurization space into k clusters
-                      where k is either the solution of the exact unicost/diverse selection, or,
-                      the given num_features. Then, features close to the centroids are selected.
-                      The number of selected features (num_features = t):
-                                - t = number of features defined by user.
-                                      The cost_metric input argument can be ignored in this case. It means the result
-                                      does not depend on the cost metric.
-                                - t = None: the number of feature computed by solving a set cover problem with
-                                      given cost metrics (unicost or diverse).
+            * kmeans: This method clusters the text featurization space into k clusters where k is either
+                      the given num_features, or, the solution of the exact unicost/diverse selection.
+                      Then, items/features close to the centroids are selected.
+                      - num_features = given as input
+                        The cost_metric argument is ignored in this case.
+                        The result does not depend on the cost metric.
+                      - num_features = None
+                        The number of features is computed by solving a set cover problem with
+                        the given cost metric.
                       
-           * exact: This method finds the solution based on the multi-level optimization in the paper with four
-                    different settings depend on the number of selected features and cost metrics.
-                    The number of selected features (num_features = t):
-                                - t = number of features defined by user.
-                                    -- cost_metric = "unicost": solve the set cover problem with unicost. If the number
-                                     of selected features is greater than t, then a max cover problem is solved to
-                                     select the optimal subset of features that covers the maximum number of rows
-                                     while not exceeding the given t.
-                                    -- cost_metric = "diverse": solve the set cover problem with unicost. Compute
-                                     diversity cost for selected features using KMeans, then the diversity cost is used
-                                     to solve the second set cover problem to find most diverse features. If the number
-                                     of selected features is greater than t, then a max cover problem is solved to
-                                     select the optimal subset of features that covers the maximum number of rows
-                                     while not exceeding the given t.
-                                - t = None: the number of feature computed by solving a set cover problem.
-                                    -- cost_metric = "unicost": solve set cover problem with unicost.
-                                    -- cost_metric = "diverse": solve the set cover problem with unicost. Compute
-                                     diversity cost for selected features using KMeans, then the diversity cost is used
-                                     to solve the second set cover problem to find most diverse features.
+           * exact: This method finds the solution based on the multi-level optimization [1,2].
+                    There are four different settings depending on the number of selected features and cost metrics.
+                    - num_features = given as input
+                      -- cost_metric = unicost
+                         Solve the set cover problem with unicost.
+                         If the number of selected features is greater than num_features,
+                         then a max cover problem is solved to select the optimal subset of features
+                         that covers the maximum number of rows without exceeding the given num_features.
+
+                      -- cost_metric = diverse
+                         Solve the set cover problem with unicost = k
+                         Compute the diversity cost for selected features using KMeans(k).
+                         Then diversity cost is used to solve the second set cover problem
+                         to find most diverse features.
+                         If the number of selected features is greater than num_features,
+                         then a max cover problem is solved to select the optimal subset of features
+                         that covers the maximum number of rows without exceeding the given num_features.
+                     - num_features = None
+                       -- cost_metric = unicost
+                          solve set cover problem with unicost.
+                       -- cost_metric = diverse
+                          solve the set cover problem with unicost = k
+                          Compute diversity cost for selected features using KMeans(k),
+                          Then diversity cost is used to solve the second set cover problem
+                          to find most diverse features.
 
         cost_metric : str, optional;
             * unicost: Each feature incurs a cost of one when included in the selection.
-                        For random this parameter does not impact.
+                       For random this parameter has no impact.
             * diverse: Each feature incurs a cost equivalent to the distance to its closest centroid
-                       in latent space obtained from the text featurization of content.
+                       in the latent space obtained from the text featurization of content.
                        The centroids are found by clustering the text featurization space into k-clusters,
-                       where k is either the solution of the exact unicost selection, or,
-                       the given num_features.
+                       where k is either the solution of the exact unicost selection, or, the given num_features.
 
        trials: int, optional;
-            The number of random trials to perform.
+            The number of random trials to perform. Only effective for the random method.
+            The best solution that covers the most labels among all trials is returned.
         """
 
         # Default values
