@@ -8,7 +8,7 @@
 This module provides a number of constants and helper functions.
 """
 
-from typing import Dict, Union, NamedTuple, NoReturn, List
+from typing import Dict, Union, NamedTuple, NoReturn
 
 import numpy as np
 import pandas as pd
