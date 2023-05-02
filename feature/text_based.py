@@ -643,9 +643,9 @@ def _process_category_data(input_df: pd.DataFrame, categories: List[str], featur
 
     # Matrix
     matrix = (input_df.labels.str.split('|', expand=True)
-                   .stack()
-                   .str.get_dummies()
-                   .sum(level=0)).T.values
+              .stack()
+              .str.get_dummies()
+              .sum(level=0)).T.values
 
     num_rows, num_cols = matrix.shape
 

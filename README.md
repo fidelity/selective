@@ -10,7 +10,7 @@ the coverage of binary labels by solving a multi-objective optimization problem 
 The library provides:
 
 * Simple to complex selection methods: Variance, Correlation, Statistical, Linear, Tree-based, or Customized.
-* [Text-based selection](#text-based-selective) to maximize diversity in text embeddings and metadata coverage.
+* [Text-based selection](#text-based-selection) to maximize diversity in text embeddings and metadata coverage.
 * Interoperable with data frames as the input.
 * Automated task detection. No need to know what feature selection method works with what machine learning task.
 * Benchmarking multiple selectors using cross-validation with built-in parallelization.
@@ -120,14 +120,16 @@ from textwiser import TextWiser, Embedding, Transformation
 data = pd.DataFrame({"article_1": ["article text here"],
                      "article_2": ["article text here"],
                      "article_3": ["article text here"],
-                     "article_4": ["article text here"]})
+                     "article_4": ["article text here"],
+                     "article_5": ["article text here"]})
 
 # Labels to denote 0/1 coverage metadata for each article 
-# across three labels, e.g., sports, international, entertainment    
+# across four labels, e.g., sports, international, entertainment, political    
 labels = pd.DataFrame({"article_1": [1, 1, 0, 1],
                        "article_2": [0, 1, 0, 0],
                        "article_3": [0, 0, 1, 0],
-                       "article_4": [0, 0, 1, 1]},
+                       "article_4": [0, 0, 1, 1],
+                       "article_5": [1, 1, 1, 0]},
                       index=["label_1", "label_2", "label_3", "label_4"])
 
 # TextWiser featurization method to create text embeddings

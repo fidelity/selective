@@ -18,11 +18,13 @@ class TestText(BaseTest):
         data = pd.DataFrame({"article_1": ["article text here"],
                              "article_2": ["article text here"],
                              "article_3": ["article text here"],
-                             "article_4": ["article text here"]})
+                             "article_4": ["article text here"],
+                             "article_5": ["article text here"]})
         labels = pd.DataFrame({"article_1": [1, 1, 0, 1],
                                "article_2": [0, 1, 0, 0],
                                "article_3": [0, 0, 1, 0],
-                               "article_4": [0, 0, 1, 1]},
+                               "article_4": [0, 0, 1, 1],
+                               "article_5": [1, 1, 1, 0]},
                               index=["label_1", "label_2", "label_3", "label_4"])
 
         # Verify that the number of columns is data and labels match
@@ -747,6 +749,32 @@ class TestText(BaseTest):
 
         # Verify that the features selected
         self.assertListEqual(list(selected_features2.columns), ['item2', 'item6'])
+
+    ################################################
+    #### Verify test with data with categories######
+    ################################################
+    def test_process_category_data(self):
+        # Define input data with categories and a numeric feature column
+        input_df = pd.DataFrame({"category_1": ["sports", "international", "entertainment", "sports"],
+                                 "category_2": ["international", "sports", "entertainment", "entertainment"],
+                                 "text_feature": [1.2, 3.4, 0.9, 5.6]})
+        categories = ["category_1", "category_2"]
+        feature_column = "text_feature"
+        num_features = 2
+        expected_matrix = np.array([
+            [0, 0, 1, 1],
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0],
+            [0, 1, 0, 0],
+            [1, 0, 0, 1]
+        ])
+
+        # Compute actual output using the function in selective.feature.text_based
+        matrix, features = _process_category_data(input_df, categories, feature_column, num_features)
+
+        # Verify output
+        np.testing.assert_array_equal(matrix, expected_matrix)
 
     ################################################
     ########## Verify invalid tests  ###############

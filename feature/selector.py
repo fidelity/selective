@@ -298,6 +298,13 @@ class SelectionMethod(NamedTuple):
               Therefore, it also needs to set a random seed of the NumPy and Scikit-Learn packages.
             * exact needs to set a seed in the case of calculating diversity cost.
 
+        Infeasibility:
+        When the labels are infeasible, the selector will return an empty dataframe as the final selection.
+        A test is designed to check whether the selector returns an empty selection by verifying that there is
+        at least one selected column for each label in the infeasible instance,
+        and then checking whether the 'feasible' variable is False.
+
+
         Attributes
         ----------
         num_features : Num, optional
@@ -612,8 +619,6 @@ class Selective:
                     check_true(isinstance(labels, pd.DataFrame), ValueError("Labels should be a pandas dataframe."))
                 else:
                     check_true(isinstance(labels, pd.Series), ValueError("Labels should be a pandas series/column."))
-
-                assert data.shape[1] == labels.shape[0], "Erorr: Number of columns in data and labels should match"
 
         if not hasattr(self.selection_method, 'num_features'):
             return
