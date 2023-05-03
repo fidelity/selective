@@ -684,7 +684,7 @@ class TestText(BaseTest):
 
         method2 = SelectionMethod.TextBased(num_features=None,
                                             featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                          [Transformation.NMF(n_components=70),
+                                                                           [Transformation.NMF(n_components=70),
                                                                            Transformation.SVD(n_components=20)]),
                                             optimization_method="exact",
                                             cost_metric="diverse",

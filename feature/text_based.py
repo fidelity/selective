@@ -636,8 +636,8 @@ def process_category_data(input_df: pd.DataFrame, categories: List[str], feature
     for index, row in input_df.iterrows():
         labels = []
         for c in categories:
-            l = c + " " + str(row[c]).replace("\n", " ")
-            labels.append(l)
+            lb = c + " " + str(row[c]).replace("\n", " ")
+            labels.append(lb)
         labels_list.append(" | ".join(labels))
     input_df["labels"] = labels_list
 
@@ -649,7 +649,7 @@ def process_category_data(input_df: pd.DataFrame, categories: List[str], feature
 
     num_rows, num_cols = matrix.shape
 
-    features = np.array([eval(l) if isinstance(l, str) else l for l in input_df[feature_column].tolist()])
+    features = np.array([eval(fl) if isinstance(fl, str) else fl for fl in input_df[feature_column].tolist()])
 
     check_true(matrix.ndim == 2, ValueError("Process Data Error: matrix should 2D"))
     check_true(len(features) == num_cols, ValueError(f"Process Data Error: features size ({len(features)}) " +
