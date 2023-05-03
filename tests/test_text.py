@@ -46,9 +46,36 @@ class TestText(BaseTest):
         # Verify the selected indices
         self.assertListEqual(list(selected_features.columns), ['article_1', 'article_3'])
 
-    def test_categorical_data(self):
-        # _process_category_data()
-        pass
+    def test_process_category_data(self):
+        # Input dataframe with categories and features
+        data = pd.DataFrame({
+            "article_1": ["article text here", "article text here", "article text here"],
+            "article_2": ["article text here", "article text here", "article text here"],
+            "article_3": ["article text here", "article text here", "article text here"],
+            "category_1": ["sports", "sports", "international"],
+            "category_2": ["sports", "entertainment", "international"],
+            "category_3": ["international", "entertainment", "international"],
+            "feature_1": [1.2, 0.5, 2.3],
+            "feature_2": [0.9, 1.5, 1.1],
+            "feature_3": [2.3, 0.7, 1.8]
+        })
+
+        # Define categories and feature column
+        categories = ["category_1", "category_2", "category_3"]
+        feature_column = "feature_1"
+
+        # Call _process_category_data function
+        matrix, features = _process_category_data(data, categories, feature_column)
+
+        # Verify matrix and features have the expected shapes and values
+        expected_matrix = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0], [0, 1, 0], [1, 0, 1], [0, 0, 1], [1, 1, 0]])
+        expected_features = np.array([1.2, 0.5, 2.3])
+
+        self.assertEqual(matrix.shape, expected_matrix.shape)
+        assert np.array_equal(matrix, expected_matrix)
+
+        self.assertEqual(features.shape, expected_features.shape)
+        assert np.array_equal(features, expected_features)
 
     ################################################
     ########## Tests for random selection ##########
@@ -749,32 +776,6 @@ class TestText(BaseTest):
 
         # Verify that the features selected
         self.assertListEqual(list(selected_features2.columns), ['item2', 'item6'])
-
-    ################################################
-    #### Verify test with data with categories######
-    ################################################
-    def test_process_category_data(self):
-        # Define input data with categories and a numeric feature column
-        input_df = pd.DataFrame({"category_1": ["sports", "international", "entertainment", "sports"],
-                                 "category_2": ["international", "sports", "entertainment", "entertainment"],
-                                 "text_feature": [1.2, 3.4, 0.9, 5.6]})
-        categories = ["category_1", "category_2"]
-        feature_column = "text_feature"
-        num_features = 2
-        expected_matrix = np.array([
-            [0, 0, 1, 1],
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 0],
-            [0, 1, 0, 0],
-            [1, 0, 0, 1]
-        ])
-
-        # Compute actual output using the function in selective.feature.text_based
-        matrix, features = _process_category_data(input_df, categories, feature_column, num_features)
-
-        # Verify output
-        np.testing.assert_array_equal(matrix, expected_matrix)
 
     ################################################
     ########## Verify invalid tests  ###############

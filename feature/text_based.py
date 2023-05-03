@@ -629,7 +629,7 @@ class _TextBased(_BaseSupervisedSelector):
         return self.get_top_k(data, self.abs_scores)
 
 
-def _process_category_data(input_df: pd.DataFrame, categories: List[str], feature_column: str, num_features: int) \
+def _process_category_data(input_df: pd.DataFrame, categories: List[str], feature_column: str) \
         -> Tuple[np.ndarray, np.ndarray]:
     # Get label for each row based on input categories
     labels_list = []
@@ -654,7 +654,6 @@ def _process_category_data(input_df: pd.DataFrame, categories: List[str], featur
     check_true(matrix.ndim == 2, ValueError("Process Data Error: matrix should 2D"))
     check_true(len(features) == num_cols, ValueError(f"Process Data Error: features size ({len(features)}) " +
                                                      f"should match the number of columns ({num_cols})"))
-    check_true(num_features <= num_cols, ValueError("Process Data Error: num_features cannot exceed num columns"))
 
     return matrix, features
 
