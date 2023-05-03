@@ -124,7 +124,7 @@ data = pd.DataFrame({"article_1": ["article text here"],
                      "article_5": ["article text here"]})
 
 # Labels to denote 0/1 coverage metadata for each article 
-# across four labels, e.g., sports, international, entertainment, political    
+# across four labels, e.g., sports, international, entertainment, science    
 labels = pd.DataFrame({"article_1": [1, 1, 0, 1],
                        "article_2": [0, 1, 0, 0],
                        "article_3": [0, 0, 1, 0],
