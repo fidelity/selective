@@ -629,7 +629,7 @@ class _TextBased(_BaseSupervisedSelector):
         return self.get_top_k(data, self.abs_scores)
 
 
-def _process_category_data(input_df: pd.DataFrame, categories: List[str], feature_column: str) \
+def process_category_data(input_df: pd.DataFrame, categories: List[str], feature_column: str) \
         -> Tuple[np.ndarray, np.ndarray]:
     # Get label for each row based on input categories
     labels_list = []

@@ -6,7 +6,7 @@ import pandas as pd
 import random
 import sklearn
 from feature.selector import Selective, SelectionMethod
-from feature.text_based import _process_category_data
+from feature.text_based import process_category_data
 from tests.test_base import BaseTest
 from textwiser import TextWiser, Embedding, Transformation
 
@@ -65,7 +65,7 @@ class TestText(BaseTest):
         feature_column = "feature_1"
 
         # Call _process_category_data function
-        matrix, features = _process_category_data(data, categories, feature_column)
+        matrix, features = process_category_data(data, categories, feature_column)
 
         # Verify matrix and features have the expected shapes and values
         expected_matrix = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0], [0, 1, 0], [1, 0, 1], [0, 0, 1], [1, 1, 0]])
