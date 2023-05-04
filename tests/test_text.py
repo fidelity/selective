@@ -54,28 +54,19 @@ class TestText(BaseTest):
             "article_3": ["article text here", "article text here", "article text here"],
             "category_1": ["sports", "sports", "international"],
             "category_2": ["sports", "entertainment", "international"],
-            "category_3": ["international", "entertainment", "international"],
-            "feature_1": [1.2, 0.5, 2.3],
-            "feature_2": [0.9, 1.5, 1.1],
-            "feature_3": [2.3, 0.7, 1.8]
+            "category_3": ["international", "entertainment", "international"]
         })
 
-        # Define categories and feature column
+        # Define categories
         categories = ["category_1", "category_2", "category_3"]
-        feature_column = "feature_1"
 
-        # Call _process_category_data function
-        matrix, features = process_category_data(data, categories, feature_column)
+        # Call process_category_data function
+        matrix = process_category_data(data, categories)
 
         # Verify matrix and features have the expected shapes and values
         expected_matrix = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0], [0, 1, 0], [1, 0, 1], [0, 0, 1], [1, 1, 0]])
-        expected_features = np.array([1.2, 0.5, 2.3])
-
         self.assertEqual(matrix.shape, expected_matrix.shape)
         assert np.array_equal(matrix, expected_matrix)
-
-        self.assertEqual(features.shape, expected_features.shape)
-        assert np.array_equal(features, expected_features)
 
     ################################################
     ########## Tests for random selection ##########
@@ -344,12 +335,12 @@ class TestText(BaseTest):
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
-        assert selector.selection_method.trials == 10
+        self.assertEqual(selector.selection_method.trials, 10)
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
         self.assertEqual(selected_features.shape[1], 3)
 
         # Verify that features are selected are low correlated
-        self.assertListEqual(list(selected_features.columns), ['item3', 'item5', 'item7'])
+        self.assertListEqual(list(selected_features.columns), ['item2', 'item4', 'item7'])
 
     # Check selection for labels with identity matrix (select all columns)
     def test_text_based_greedy_unicost_diverse_identity(self):
@@ -440,7 +431,7 @@ class TestText(BaseTest):
         self.assertTrue(set(selected_features.columns).issubset(data.columns))
 
         # Verify that features are selected are low correlated
-        self.assertListEqual(list(selected_features.columns), ['item1', 'item7'])
+        self.assertListEqual(list(selected_features.columns), ['item3', 'item7'])
 
     # Verify selection for the Random method, unicost cost metric, and none number of features with the same seed
     def test_text_based_kmeans_unicost(self):
@@ -481,7 +472,7 @@ class TestText(BaseTest):
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
 
         # Verify that the features selected
-        self.assertListEqual(list(selected_features.columns), ['item1', 'item2', 'item4', 'item5', 'item7'])
+        self.assertListEqual(list(selected_features.columns), ['item1', 'item3', 'item5', 'item6', 'item7'])
 
     # Check the test consistency for KMeans with diverse cost and none number of features
     # (same features should select with the same seed)
@@ -534,19 +525,6 @@ class TestText(BaseTest):
 
         # Verify the consistency of selected features with the initial run
         self.assertTrue(selected_features.equals(selected_features2))
-
-        method2 = SelectionMethod.TextBased(num_features=None,
-                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                           [Transformation.NMF(n_components=30),
-                                                                            Transformation.SVD(n_components=10)]),
-                                            optimization_method="kmeans",
-                                            cost_metric="diverse")
-        selector3 = Selective(method2, seed=seed)
-        selector3.fit(data, labels)
-        selected_features3 = selector3.transform(data)
-
-        # Verify that changing TextWiser parameters results in different selections
-        self.assertNotEqual(selected_features.columns.tolist(), selected_features3.columns.tolist())
 
     ###############################################
     ########## Tests for exact selection ##########

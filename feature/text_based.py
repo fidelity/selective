@@ -212,7 +212,6 @@ class ContentSelector:
         No return
        --------
         """
-
         # For these configurations, text featurization is not needed
         is_featurization_needed = defaultdict(lambda: True)
         is_featurization_needed[(False, "random", "diverse")] = False
@@ -225,7 +224,7 @@ class ContentSelector:
 
         config = (num_features is None, optimization_method, cost_metric)
         if is_featurization_needed[config]:
-            feature_column = self.featurization_method.fit_transform(input_df)
+            feature_column = self.featurization_method.fit_transform(input_df.values.tolist()[0])
             self.text_embeddings = np.array([eval(txt_feature) if isinstance(txt_feature, str)
                                              else txt_feature for txt_feature in feature_column.tolist()])
 
@@ -629,8 +628,7 @@ class _TextBased(_BaseSupervisedSelector):
         return self.get_top_k(data, self.abs_scores)
 
 
-def process_category_data(input_df: pd.DataFrame, categories: List[str], feature_column: str) \
-        -> Tuple[np.ndarray, np.ndarray]:
+def process_category_data(input_df: pd.DataFrame, categories: List[str]) -> pd.DataFrame:
     # Get label for each row based on input categories
     labels_list = []
     for index, row in input_df.iterrows():
@@ -641,21 +639,15 @@ def process_category_data(input_df: pd.DataFrame, categories: List[str], feature
         labels_list.append(" | ".join(labels))
     input_df["labels"] = labels_list
 
-    # Matrix
+    # Label matrix
     matrix = (input_df.labels.str.split('|', expand=True)
               .stack()
               .str.get_dummies()
-              .sum(level=0)).T.values
-
-    num_rows, num_cols = matrix.shape
-
-    features = np.array([eval(fl) if isinstance(fl, str) else fl for fl in input_df[feature_column].tolist()])
+              .sum(level=0)).T
 
     check_true(matrix.ndim == 2, ValueError("Process Data Error: matrix should 2D"))
-    check_true(len(features) == num_cols, ValueError(f"Process Data Error: features size ({len(features)}) " +
-                                                     f"should match the number of columns ({num_cols})"))
 
-    return matrix, features
+    return matrix
 
 
 # # requires kmeans and matplotlib
