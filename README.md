@@ -21,12 +21,12 @@ Selective is developed by the Artificial Intelligence Center of Excellence at Fi
 ## Quick Start
 ```python
 # Import Selective and SelectionMethod
-from sklearn.datasets import load_boston
+from sklearn.datasets import fetch_california_housing
 from feature.utils import get_data_label
 from feature.selector import Selective, SelectionMethod
 
 # Data
-data, label = get_data_label(load_boston())
+data, label = get_data_label(fetch_california_housing())
 
 # Feature selectors from simple to more complex
 selector = Selective(SelectionMethod.Variance(threshold=0.0))
@@ -59,13 +59,13 @@ print("Scores:", list(selector.get_absolute_scores()))
 
 ```python
 # Imports
-from sklearn.datasets import load_boston
+from sklearn.datasets import fetch_california_housing
 from feature.utils import get_data_label
 from xgboost import XGBClassifier, XGBRegressor
 from feature.selector import SelectionMethod, benchmark, calculate_statistics
 
 # Data
-data, label = get_data_label(load_boston())
+data, label = get_data_label(fetch_california_housing())
 
 # Selectors
 corr_threshold = 0.5
@@ -150,15 +150,15 @@ print("Reduction:", list(subset.columns))
 
 ```python
 import pandas as pd
-from sklearn.datasets import load_boston
+from sklearn.datasets import fetch_california_housing
 from feature.utils import get_data_label
 from feature.selector import SelectionMethod, Selective, plot_importance
 
 # Data
-data, label = get_data_label(load_boston())
+data, label = get_data_label(fetch_california_housing())
 
 # Feature Selector
-selector = Selective(SelectionMethod.Linear(num_features=10, regularization="none"))
+selector = Selective(SelectionMethod.Linear(num_features=8, regularization="none"))
 subset = selector.fit_transform(data, label)
 
 # Plot Feature Importance
@@ -168,7 +168,7 @@ plot_importance(df)
 
 ## Installation
 
-Selective requires **Python 3.6+** and can be installed from PyPI using ``pip install selective``.
+Selective requires **Python 3.7+** and can be installed from PyPI using ``pip install selective``.
 
 ## Source 
 
