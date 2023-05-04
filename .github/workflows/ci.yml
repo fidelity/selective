@@ -27,6 +27,6 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           pip install -e .
-          python3 -m unittest discover -v tests
+          PYTHONHASHSEED=0 python3 -m unittest discover -v tests
           python3 setup.py install
   
