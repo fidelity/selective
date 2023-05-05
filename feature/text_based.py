@@ -643,7 +643,8 @@ def process_category_data(input_df: pd.DataFrame, categories: List[str]) -> pd.D
     matrix = (input_df.labels.str.split('|', expand=True)
               .stack()
               .str.get_dummies()
-              .sum(level=0)).T
+              .groupby(level=0, axis=0)
+              .sum()).T
 
     check_true(matrix.ndim == 2, ValueError("Process Data Error: matrix should 2D"))
 
