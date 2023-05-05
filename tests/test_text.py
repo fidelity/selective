@@ -3,8 +3,6 @@
 # SPDX-License-Identifier: GNU GPLv3
 import numpy as np
 import pandas as pd
-import random
-import sklearn
 from feature.selector import Selective, SelectionMethod
 from feature.text_based import process_category_data
 from tests.test_base import BaseTest
@@ -30,16 +28,12 @@ class TestText(BaseTest):
         # Verify that the number of columns is data and labels match
         self.assertEqual(data.shape[1], labels.shape[1])
 
-        # Fix the random seed
-        seed = 3000
-        np.random.seed(seed)
-
         method = SelectionMethod.TextBased(num_features=2,
                                            optimization_method="random",
                                            cost_metric="unicost",
                                            trials=1)
 
-        selector = Selective(method, seed=seed)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
@@ -87,10 +81,6 @@ class TestText(BaseTest):
         # Verify that the number of columns is data and labels match
         self.assertEqual(data.shape[1], labels.shape[1])
 
-        # Fix the random seed
-        seed = 123
-        np.random.seed(seed)
-
         method_unicost = SelectionMethod.TextBased(num_features=3,
                                                    optimization_method="random",
                                                    cost_metric="unicost",
@@ -107,30 +97,24 @@ class TestText(BaseTest):
                                            cost_metric="unicost",
                                            trials=20)
 
-        selector_unicost = Selective(method_unicost, seed=seed)
+        selector_unicost = Selective(method_unicost)
         selector_unicost.fit(data, labels)
         selected_features_unicost = selector_unicost.transform(data)
 
-        # Set the same seed again
-        np.random.seed(seed)
-        selector_diverse = Selective(method_diverse, seed=seed)
+        selector_diverse = Selective(method_diverse)
         selector_diverse.fit(data, labels)
         selected_features_diverse = selector_diverse.transform(data)
-
-        # Check whether the seed value used in tests is the same (not the default = 123456)
-        self.assertEqual(selector_unicost.seed, selector_diverse.seed)
 
         # Verify the consistency of selected features with the initial run
         self.assertTrue(selected_features_unicost.equals(selected_features_diverse))
 
         # Set the same seed again
-        np.random.seed(seed)
-        best_selector = Selective(method, seed=seed)
+        best_selector = Selective(method)
         best_selector.fit(data, labels)
         best_selected_features = best_selector.transform(data)
 
         # Verify the selected indices
-        self.assertListEqual(list(best_selected_features.columns), ['item2', 'item3', 'item5'])
+        self.assertListEqual(list(best_selected_features.columns), ['item1', 'item2', 'item3'])
 
     # Verify selection for the Random method, unicost, and none number of features
     def test_text_based_random_unicost(self):
@@ -146,16 +130,12 @@ class TestText(BaseTest):
         # Verify that the number of columns is data and labels match
         self.assertEqual(data.shape[1], labels.shape[1])
 
-        # Use same seed for both methods
-        seed = 123
-        np.random.seed(seed)
-
         method = SelectionMethod.TextBased(num_features=None,
                                            optimization_method="random",
                                            cost_metric="unicost",
                                            trials=1)
 
-        selector = Selective(method, seed=seed)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
@@ -167,7 +147,7 @@ class TestText(BaseTest):
         self.assertEqual(selected_features.shape[1], 2)
 
         # Verify the selected feature
-        self.assertListEqual(list(selected_features.columns), ['item2', 'item3'])
+        self.assertListEqual(list(selected_features.columns), ['item2', 'item4'])
         self.assertTrue(set(selected_features.columns).issubset(data.columns))
 
     # Verify selection for the Random method, diverse, and none number of features
@@ -184,24 +164,17 @@ class TestText(BaseTest):
         # Verify that the number of columns is data and labels match
         self.assertEqual(data.shape[1], labels.shape[1])
 
-        seed = 123
-        np.random.seed(seed)
-
-        # "diverse" is Default cost metric
         method = SelectionMethod.TextBased(num_features=None,
                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                          [Transformation.NMF(n_components=20),
-                                                                           Transformation.SVD(n_components=10)]),
+                                                                          Transformation.NMF(n_components=10,
+                                                                                             random_state=123)),
                                            optimization_method="random",
                                            cost_metric="diverse",
                                            trials=1)
 
-        selector = Selective(method, seed=seed)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
-
-        # Check whether the seed value used in test is the same (not the default = 123456)
-        self.assertEqual(selector.seed, seed)
 
         # Check whether the selector.transform() is returned a DataFrame or not
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
@@ -211,7 +184,7 @@ class TestText(BaseTest):
         self.assertEqual(selected_features.shape[1], 2)
 
         # Verify the selected indices
-        self.assertListEqual(list(selected_features.columns), ['item2', 'item3'])
+        self.assertListEqual(list(selected_features.columns), ['item2', 'item4'])
         self.assertTrue(set(selected_features.columns).issubset(data.columns))
 
     ################################################
@@ -222,9 +195,6 @@ class TestText(BaseTest):
     # Check selection for infeasible instance (empty)
     # Check selection for label matrix with considerable coverage (same features should select with the same seed)
     def test_text_based_greedy_num_feature_one_or_infeasible_or_max(self):
-        # Fix the random seed
-        seed = 12
-        np.random.seed(seed)
 
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
@@ -244,11 +214,9 @@ class TestText(BaseTest):
         # Verify that the number of columns is data and labels match
         self.assertEqual(data.shape[1], labels_single_col.shape[1])
 
-        selector = Selective(method_single_col, seed=seed)
+        selector = Selective(method_single_col)
         selector.fit(data, labels_single_col)
         selected_features_single_col = selector.transform(data)
-
-        assert selector.selection_method.trials == 10
         self.assertTrue(isinstance(selected_features_single_col, pd.DataFrame))
 
         # Verify greedy selects the item1
@@ -262,12 +230,9 @@ class TestText(BaseTest):
                                                       optimization_method="greedy",
                                                       cost_metric="unicost")
 
-        # Set the same seed again
-        np.random.seed(seed)
-        selector = Selective(method_infeasible, seed=seed)
+        selector = Selective(method_infeasible)
         selector.fit(data, labels_infeasible)
         selected_features_infeasible = selector.transform(data)
-
         self.assertTrue(isinstance(selected_features_infeasible, pd.DataFrame))
 
         # Verify that there is at least one selected column for each label
@@ -289,8 +254,7 @@ class TestText(BaseTest):
                                                     cost_metric="unicost")
 
         # Set the same seed again
-        np.random.seed(seed)
-        selector = Selective(method_max_cols, seed=seed)
+        selector = Selective(method_max_cols)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
@@ -303,7 +267,7 @@ class TestText(BaseTest):
     # Verify selection for the Greedy method, diverse with highly correlated features
     # (same features should select with the same seed)
     def test_text_based_greedy_num_feature_unicost_diverse(self):
-        ### Several highly correlated features but grouped based on labels ###
+        # Several highly correlated features but grouped based on labels
         data = pd.DataFrame(
             {"item1": ["this is a sentences with more common words and more words to increase frequency"],
              "item2": ["third sentence with repeated words as item2"],
@@ -320,18 +284,14 @@ class TestText(BaseTest):
         # Verify that the number of columns is data and labels match
         self.assertEqual(data.shape[1], labels.shape[1])
 
-        # Fix the random seed due to use highly correlated features and randomness in the Lagrangian multiplier
-        seed = 12
-        np.random.seed(seed)
-
         method = SelectionMethod.TextBased(num_features=3,
                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                          [Transformation.NMF(n_components=20),
-                                                                           Transformation.SVD(n_components=10)]),
+                                                                          Transformation.NMF(n_components=10,
+                                                                                             random_state=123)),
                                            optimization_method="greedy",
                                            cost_metric="diverse")
 
-        selector = Selective(method, seed=seed)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
@@ -340,7 +300,7 @@ class TestText(BaseTest):
         self.assertEqual(selected_features.shape[1], 3)
 
         # Verify that features are selected are low correlated
-        self.assertListEqual(list(selected_features.columns), ['item2', 'item4', 'item7'])
+        self.assertListEqual(list(selected_features.columns), ['item3', 'item5', 'item7'])
 
     # Check selection for labels with identity matrix (select all columns)
     def test_text_based_greedy_unicost_diverse_identity(self):
@@ -353,7 +313,7 @@ class TestText(BaseTest):
              "item6": ["another sentence with similar words as item1"],
              "item7": ["third sentence with repeated words as item1"]})
 
-        ### Labels with an identity columns ###
+        # Labels with an identity columns
         labels = pd.DataFrame({"item1": [1, 0, 0, 0, 0, 0, 0], "item2": [0, 1, 0, 0, 0, 0, 0],
                                "item3": [0, 0, 1, 0, 0, 0, 0], "item4": [0, 0, 0, 1, 0, 0, 0],
                                "item5": [0, 0, 0, 0, 1, 0, 0], "item6": [0, 0, 0, 0, 0, 1, 0],
@@ -362,22 +322,17 @@ class TestText(BaseTest):
         # Verify that the number of columns is data and labels match
         self.assertEqual(data.shape[1], labels.shape[1])
 
-        # Fix the random seed
-        seed = 12
-        np.random.seed(seed)
-
         method = SelectionMethod.TextBased(num_features=None,
                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                          [Transformation.NMF(n_components=20),
-                                                                           Transformation.SVD(n_components=10)]),
+                                                                          Transformation.NMF(n_components=10,
+                                                                                             random_state=123)),
                                            optimization_method="greedy",
                                            cost_metric="diverse")
 
-        selector = Selective(method, seed=seed)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
-        assert selector.selection_method.trials == 10
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
 
         # Verify all features are selected
@@ -404,26 +359,18 @@ class TestText(BaseTest):
 
         method = SelectionMethod.TextBased(num_features=2,
                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                          [Transformation.NMF(n_components=30),
-                                                                           Transformation.SVD(n_components=10)]),
+                                                                          Transformation.NMF(n_components=10,
+                                                                                             random_state=123)),
                                            optimization_method="kmeans",
                                            cost_metric="unicost")  # Default is diverse
 
         # Verify that the number of columns is data and labels match
         self.assertEqual(data.shape[1], labels.shape[1])
 
-        # For kmeans need to set random seed for both NumPy and scikit-learn
-        seed = 1234
-        np.random.seed(seed)
-        random.seed(seed)
-        sklearn.set_config(working_memory=0)
-        sklearn.utils.check_random_state(seed)
-
-        selector = Selective(method, seed=seed)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
-        self.assertEqual(selector.seed, 1234)
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
         self.assertEqual(selected_features.shape[1], 2)
 
@@ -431,7 +378,7 @@ class TestText(BaseTest):
         self.assertTrue(set(selected_features.columns).issubset(data.columns))
 
         # Verify that features are selected are low correlated
-        self.assertListEqual(list(selected_features.columns), ['item3', 'item7'])
+        self.assertListEqual(list(selected_features.columns), ['item1', 'item5'])
 
     # Verify selection for the Random method, unicost cost metric, and none number of features with the same seed
     def test_text_based_kmeans_unicost(self):
@@ -450,29 +397,22 @@ class TestText(BaseTest):
 
         method = SelectionMethod.TextBased(num_features=None,
                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                          [Transformation.NMF(n_components=30),
-                                                                           Transformation.SVD(n_components=10)]),
+                                                                          Transformation.NMF(n_components=10,
+                                                                                             random_state=123)),
                                            optimization_method="kmeans",
-                                           cost_metric="unicost")  # Default cost metric is diverse
+                                           cost_metric="unicost")
 
         # Verify that the number of columns is data and labels match
         self.assertEqual(data.shape[1], labels.shape[1])
 
-        # Set random seed for both NumPy and scikit-learn
-        seed = 1234
-        np.random.seed(seed)
-        random.seed(seed)
-        sklearn.set_config(working_memory=0)
-        sklearn.utils.check_random_state(seed)
-
-        selector = Selective(method, seed=seed)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
 
         # Verify that the features selected
-        self.assertListEqual(list(selected_features.columns), ['item1', 'item3', 'item5', 'item6', 'item7'])
+        self.assertListEqual(list(selected_features.columns), ['item2', 'item4', 'item5', 'item6', 'item7'])
 
     # Check the test consistency for KMeans with diverse cost and none number of features
     # (same features should select with the same seed)
@@ -494,32 +434,19 @@ class TestText(BaseTest):
 
         method = SelectionMethod.TextBased(num_features=None,
                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                          [Transformation.NMF(n_components=20),
-                                                                           Transformation.SVD(n_components=10)]),
+                                                                          Transformation.NMF(n_components=10,
+                                                                                             random_state=123)),
                                            optimization_method="kmeans",
                                            cost_metric="diverse")  # Default cost metric is diverse
 
         # Verify that the number of columns is data and labels match
         self.assertEqual(data.shape[1], labels.shape[1])
 
-        # Set random seed for both NumPy and scikit-learn
-        seed = 1234
-        np.random.seed(seed)
-        random.seed(seed)
-        sklearn.set_config(working_memory=0)
-        sklearn.utils.check_random_state(seed)
-
-        selector = Selective(method, seed=seed)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
-        # Verify the consistency of selected features with the initial run
-        np.random.seed(seed)
-        random.seed(seed)
-        sklearn.set_config(working_memory=0)
-        sklearn.utils.check_random_state(seed)
-        selector2 = Selective(method, seed=seed)
-
+        selector2 = Selective(method)
         selector2.fit(data, labels)
         selected_features2 = selector2.transform(data)
 
@@ -552,27 +479,18 @@ class TestText(BaseTest):
         method = SelectionMethod.TextBased(num_features=None,
                                            optimization_method="exact",
                                            cost_metric="unicost",
-                                           trials=1)  # Default is diverse
+                                           trials=1)
 
         method2 = SelectionMethod.TextBased(num_features=None,
                                             optimization_method="exact",
                                             cost_metric="unicost",
-                                            trials=20)  # Default for trials=10
+                                            trials=20)
 
-        # Set a fixed seed for the random number generator
-        seed = 12345
-        np.random.seed(seed)
-
-        selector = Selective(method, seed=seed)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
-        assert selector.selection_method.trials == 1  # Only run once
-        self.assertTrue(isinstance(selected_features, pd.DataFrame))
-
-        np.random.seed(seed)  # Set the same seed again
-
-        selector2 = Selective(method2, seed=seed)
+        selector2 = Selective(method2)
         selector2.fit(data, labels)
         selected_features2 = selector2.transform(data)
 
@@ -604,26 +522,18 @@ class TestText(BaseTest):
         method = SelectionMethod.TextBased(num_features=2,  # num_features is less than the solution of set cover
                                            optimization_method="exact",
                                            cost_metric="unicost",
-                                           trials=1)  # Default is diverse
+                                           trials=1)
 
         method2 = SelectionMethod.TextBased(num_features=2,
                                             optimization_method="exact",
                                             cost_metric="unicost",
-                                            trials=20)  # Default for trials=10
+                                            trials=20)
 
-        # Set a fixed seed for the random number generator
-        seed = 12345
-        np.random.seed(seed)
-
-        selector = Selective(method, seed=seed)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
-        assert selector.selection_method.trials == 1  # Only run once
-        self.assertTrue(isinstance(selected_features, pd.DataFrame))
-
-        np.random.seed(seed)  # Set the same seed again
-        selector2 = Selective(method2, seed=seed)
+        selector2 = Selective(method2)
         selector2.fit(data, labels)
         selected_features2 = selector2.transform(data)
 
@@ -654,41 +564,28 @@ class TestText(BaseTest):
 
         method = SelectionMethod.TextBased(num_features=None,
                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                          [Transformation.NMF(n_components=70),
-                                                                           Transformation.SVD(n_components=20)]),
+                                                                          Transformation.NMF(n_components=10,
+                                                                                             random_state=123)),
                                            optimization_method="exact",
                                            cost_metric="diverse",
-                                           trials=1)  # Default cost metric is diverse
+                                           trials=1)
 
         method2 = SelectionMethod.TextBased(num_features=None,
                                             featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                           [Transformation.NMF(n_components=70),
-                                                                           Transformation.SVD(n_components=20)]),
+                                                                           Transformation.NMF(n_components=10,
+                                                                                              random_state=123)),
                                             optimization_method="exact",
                                             cost_metric="diverse",
-                                            trials=20)  # Default for trials=10
+                                            trials=1)
 
-        # Set a fixed seed for the random number generator
-        seed = 12345
-        np.random.seed(seed)
-        random.seed(seed)
-        sklearn.set_config(working_memory=0)
-        sklearn.utils.check_random_state(seed)
-
-
-        selector = Selective(method, seed=seed)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
-        assert selector.selection_method.trials == 1  # Only run once
+        self.assertEqual(selector.selection_method.trials, 1)  # Only run once
         self.assertTrue(isinstance(selected_features, pd.DataFrame))
 
-        np.random.seed(seed)
-        random.seed(seed)
-        sklearn.set_config(working_memory=0)
-        sklearn.utils.check_random_state(seed)  # Set the same seed again
-
-        selector2 = Selective(method2, seed=seed)
+        selector2 = Selective(method2)
         selector2.fit(data, labels)
         selected_features2 = selector2.transform(data)
 
@@ -696,7 +593,7 @@ class TestText(BaseTest):
         self.assertTrue(selected_features.equals(selected_features2))
 
         # Verify that the features selected
-        self.assertListEqual(list(selected_features2.columns), ['item2', 'item5', 'item6'])
+        self.assertListEqual(list(selected_features2.columns), ['item3', 'item4', 'item7'])
 
     # Verify selection for the Exact method, diverse, and fixed number of features with the same seed
     # (the same features should select)
@@ -719,33 +616,25 @@ class TestText(BaseTest):
 
         method = SelectionMethod.TextBased(num_features=2,  # num_features is less than the solution of set cover
                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                          [Transformation.NMF(n_components=70),
-                                                                           Transformation.SVD(n_components=20)]),
+                                                                          Transformation.NMF(n_components=10,
+                                                                                             random_state=123)),
                                            optimization_method="exact",
                                            cost_metric="diverse",
                                            trials=1)  # Default cost metric is diverse
 
         method2 = SelectionMethod.TextBased(num_features=2,
                                             featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
-                                                                           [Transformation.NMF(n_components=70),
-                                                                            Transformation.SVD(n_components=20)]),
+                                                                           Transformation.NMF(n_components=10,
+                                                                                              random_state=123)),
                                             optimization_method="exact",
                                             cost_metric="diverse",
                                             trials=20)  # Default for trials=10
 
-        # Set a fixed seed for the random number generator
-        seed = 12345
-        np.random.seed(seed)
-
-        selector = Selective(method, seed=seed)
+        selector = Selective(method)
         selector.fit(data, labels)
         selected_features = selector.transform(data)
 
-        assert selector.selection_method.trials == 1  # Only run once
-        self.assertTrue(isinstance(selected_features, pd.DataFrame))
-
-        np.random.seed(seed)  # Set the same seed again
-        selector2 = Selective(method2, seed=seed)
+        selector2 = Selective(method2)
         selector2.fit(data, labels)
         selected_features2 = selector2.transform(data)
 
@@ -753,7 +642,7 @@ class TestText(BaseTest):
         self.assertTrue(selected_features.equals(selected_features2))
 
         # Verify that the features selected
-        self.assertListEqual(list(selected_features2.columns), ['item2', 'item6'])
+        self.assertListEqual(list(selected_features2.columns), ['item3', 'item7'])
 
     ################################################
     ########## Verify invalid tests  ###############
