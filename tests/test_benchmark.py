@@ -4,7 +4,7 @@
 
 from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
-from sklearn.datasets import load_boston, load_iris
+from sklearn.datasets import fetch_california_housing, load_iris
 from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
 from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
@@ -48,46 +48,46 @@ class TestBenchmark(BaseTest):
     }
 
     def test_benchmark_regression(self):
-        data, label = get_data_label(load_boston())
-        data = data.drop(columns=["CHAS", "NOX", "RM", "DIS", "RAD", "TAX", "PTRATIO", "INDUS"])
+        data, label = get_data_label(fetch_california_housing())
+        data = data.drop(columns=["Latitude", "Longitude", "Population"])
 
         # Benchmark
         score_df, selected_df, runtime_df = benchmark(self.selectors, data, label, output_filename=None)
         _ = calculate_statistics(score_df, selected_df)
 
-        self.assertListAlmostEqual([0.4787777784012165, 0.47170429073431874, 0.5596288196730658, 0.4400410275414326, 0.5674082968785575],
+        self.assertListAlmostEqual([0.3053471606764446, 0.27265001037792713, 0.4665292949816222, 0.39871798871431496, 0.20859822017269058],
                                    score_df["corr_pearson"].to_list())
 
-        self.assertListAlmostEqual([0.5357134888110283, 0.48128808343101986, 0.5132201793752295, 0.3384081264406572, 0.49448886053070107],
+        self.assertListAlmostEqual([0.35337823099497323, 0.27106131570570696, 0.3403608920939985, 0.27919214584187463, 0.22975301078604157],
                                    score_df["corr_kendall"].to_list())
 
-        self.assertListAlmostEqual([0.6542231557010167, 0.5538583519391704, 0.6267310661636885, 0.3924548536221991, 0.5984933578623318],
+        self.assertListAlmostEqual([0.4175152214130028, 0.304906296660894, 0.3951865754854279, 0.31755353822102084, 0.24402514677988724],
                                    score_df["corr_spearman"].to_list())
 
-        self.assertListAlmostEqual([89.48611475768125, 75.25764229895405, 83.47745921923685, 63.05422911249312, 601.6178711099022],
+        self.assertListAlmostEqual([18556.57163129339, 232.84147870961536, 487.75746169668923, 45.10857562258609, 11.63534210812702],
                                    score_df["univ_anova"].to_list())
 
         self.assertListAlmostEqual([0, 0, 0, 0, 0],
                                    score_df["univ_chi_square"].to_list())
 
-        self.assertListAlmostEqual([0.3421450205863028, 0.1806168920395521, 0.31266011627421086, 0.16107911083428794, 0.666208499757925],
+        self.assertListAlmostEqual([0.38748130501016664, 0.030972311154629395, 0.10332044995904166, 0.02446258804706858, 0.07292532752425096],
                                    score_df["univ_mutual_info"].to_list())
 
-        self.assertListAlmostEqual([0.06901111285092865, 0.05408618283036938, 0.06145227292569164, 0.006510036424819454, 0.9546615660373198],
+        self.assertListAlmostEqual([0.5374323985142709, 0.01587148752174572, 0.21385807822961317, 0.998452656231538, 0.004701537317550907],
                                    score_df["linear"].to_list())
 
-        self.assertListAlmostEqual([0.05682706487290267, 0.051008405488957305, 0.05319245109490162, 0.007176306398647428, 0.9231211889322195],
+        self.assertListAlmostEqual([0.1455857089432204, 0.0059868642655759976, 0.0, 0.0, 0.0],
                                    score_df["lasso"].to_list())
 
-        self.assertListAlmostEqual([0.0690214777400926, 0.054087779998048285, 0.06144441861097637, 0.006510854482697315, 0.95459417786841],
+        self.assertListAlmostEqual([0.5372781001028991, 0.015872990388928143, 0.21356598255185547, 0.9969097836322982, 0.00470112708581501],
                                    score_df["ridge"].to_list())
 
-        self.assertListAlmostEqual([0.10947144861974874, 0.020211076089938374, 0.08416074180466389, 0.045604950489313435, 0.7405517829963355],
+        self.assertListAlmostEqual([0.568902676572251, 0.08541691893202849, 0.09569412526413482, 0.07764370838746859, 0.172342570844117],
                                    score_df["random_forest"].to_list())
 
     def test_benchmark_regression_cv(self):
-        data, label = get_data_label(load_boston())
-        data = data.drop(columns=["CHAS", "NOX", "RM", "DIS", "RAD", "TAX", "PTRATIO", "INDUS"])
+        data, label = get_data_label(fetch_california_housing())
+        data = data.drop(columns=["Latitude", "Longitude", "Population"])
 
         # Benchmark
         score_df, selected_df, runtime_df = benchmark(self.selectors, data, label, cv=5, output_filename=None)
@@ -97,42 +97,42 @@ class TestBenchmark(BaseTest):
         score_df = score_df.groupby(score_df.index).mean()
 
         self.assertListAlmostEqual(
-            [0.5598624197527886, 0.43999689309372514, 0.47947203347292133, 0.5677393697964164, 0.4718904343871402],
+            [0.3985598297917597, 0.20850825441037615, 0.4666992870763639, 0.2730917394914155, 0.3055611360799319],
             score_df["corr_pearson"].to_list())
 
         self.assertListAlmostEqual(
-            [0.5133150872001859, 0.33830236220280874, 0.5355471187677026, 0.4944995007684703, 0.4812959438381611],
+            [0.27919138262585763, 0.2297522353771487, 0.34035483445254094, 0.271057965991026, 0.3533773637341713],
             score_df["corr_kendall"].to_list())
 
         self.assertListAlmostEqual(
-            [0.6266784101694156, 0.3922216387923788, 0.6538541627239243, 0.598348546553966, 0.5537572894805117],
+            [0.3175505421971197, 0.2440240099984249, 0.3951769790459652, 0.30489911980256346, 0.41751306633445456],
             score_df["corr_spearman"].to_list())
 
         self.assertListAlmostEqual(
-            [66.9096213925407, 50.470199216622746, 71.84642313219175, 481.0566386481166, 60.5346993182466],
+            [37.957763474707654, 10.500397211273347, 394.06992796875835, 186.57009283545057, 14844.857145567506],
             score_df["univ_anova"].to_list())
 
         self.assertListAlmostEqual([0, 0, 0, 0, 0],
                                    score_df["univ_chi_square"].to_list())
 
         self.assertListAlmostEqual(
-            [0.31315151982855777, 0.16552049446241074, 0.3376809619388398, 0.681986210957143, 0.18450178283973817],
+            [0.024989998940959702, 0.07204597410371019, 0.09992776690255863, 0.02930378660964674, 0.3848375372888359],
             score_df["univ_mutual_info"].to_list())
 
         self.assertListAlmostEqual(
-            [0.06157747888912044, 0.006445566885590223, 0.06693250180688959, 0.9576028432508157, 0.053796504696545476],
+            [1.0003894283465629, 0.0048958465934836595, 0.2142213590932193, 0.01587069982020226, 0.5376133617371683],
             score_df["linear"].to_list())
 
         self.assertListAlmostEqual(
-            [0.05329389111187177, 0.007117077997740284, 0.054563375238215125, 0.9260391103473467, 0.05071613235478144],
+            [0.0, 0.0, 0.0, 0.005984992397998495, 0.14554803788718568],
             score_df["lasso"].to_list())
 
         self.assertListAlmostEqual(
-            [0.061567603158881413, 0.006446613222308434, 0.06694625250225411, 0.9575175129470551, 0.05379855880797472],
+            [0.9984400900940591, 0.004895513801696266, 0.21385430705037084, 0.015872543772210295, 0.5374193112415335],
             score_df["ridge"].to_list())
 
         self.assertListAlmostEqual(
-            [0.07819877553940296, 0.04385018441841779, 0.11432712180337742, 0.7401304941703286, 0.023493424068473153],
+            [0.07628104935957278, 0.1730032839199575, 0.094369811610183, 0.08557048730299173, 0.570775367807295],
             score_df["random_forest"].to_list())
 
     def test_benchmark_classification(self):
