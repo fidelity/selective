@@ -286,7 +286,9 @@ class ContentSelector:
         """
         kmeans = KMeans(n_clusters=selected_size, random_state=self.seed, n_init=self.trials)
         distances = kmeans.fit_transform(self.text_embeddings)
+        print("DISTANCES:")
         print(distances)
+        print("\n")
 
         ### NEXT_S_DIS
         for i in range(self._num_cols):
