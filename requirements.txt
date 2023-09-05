@@ -2,8 +2,10 @@ catboost
 joblib
 lightgbm
 numpy
+mip
 pandas
 scikit-learn
 seaborn
 statsmodels
+textwiser
 xgboost

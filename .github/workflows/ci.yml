@@ -7,6 +7,8 @@ on:
   pull_request:
     branches:
       - master
+  schedule:
+    - cron: '00 12 * * 1' # Runs every Monday at 8:00 AM EST
 
 jobs:
   Test:
@@ -28,6 +30,5 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           pip install -e .
-          python3 -m unittest discover -v tests
+          PYTHONHASHSEED=0 python3 -m unittest discover -v tests
           python3 setup.py install
-  

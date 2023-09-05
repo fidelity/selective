@@ -2,7 +2,7 @@
 # Copyright FMR LLC <opensource@fidelity.com>
 # SPDX-License-Identifier: GNU GPLv3
 
-from sklearn.datasets import load_boston, load_iris
+from sklearn.datasets import fetch_california_housing, load_iris
 from feature.utils import get_data_label
 from feature.selector import Selective, SelectionMethod
 from tests.test_base import BaseTest
@@ -11,8 +11,8 @@ from tests.test_base import BaseTest
 class TestChi(BaseTest):
 
     def test_chi_regress_invalid(self):
-        data, label = get_data_label(load_boston())
-        data = data.drop(columns=["CHAS", "NOX", "RM", "DIS", "RAD", "TAX", "PTRATIO", "INDUS"])
+        data, label = get_data_label(fetch_california_housing())
+        data = data.drop(columns=["Latitude", "Longitude", "Population"])
 
         method = SelectionMethod.Statistical(num_features=3, method="chi_square")
         selector = Selective(method)
@@ -20,8 +20,8 @@ class TestChi(BaseTest):
             selector.fit(data, label)
 
     def test_chi_regress_top_percentile_invalid(self):
-        data, label = get_data_label(load_boston())
-        data = data.drop(columns=["CHAS", "NOX", "RM", "DIS", "RAD", "TAX", "PTRATIO", "INDUS"])
+        data, label = get_data_label(fetch_california_housing())
+        data = data.drop(columns=["Latitude", "Longitude", "Population"])
 
         method = SelectionMethod.Statistical(num_features=0.6, method="chi_square")
         selector = Selective(method)

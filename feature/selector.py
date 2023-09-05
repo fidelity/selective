@@ -4,16 +4,12 @@
 # SPDX-License-Identifier: GNU GPLv3
 
 """
-:Author: FMR LLC
-:Version: 1.1.0 of June 16, 2021
-
 This module defines the public interface of the **Selective Library** for feature selection.
 """
 
 import multiprocessing as mp
 from time import time
 from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional
-
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -25,16 +21,16 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.model_selection import KFold
+from textwiser import TextWiser, Embedding, Transformation
 from xgboost import XGBClassifier, XGBRegressor
-
 from feature.base import _BaseDispatcher, _BaseSupervisedSelector, _BaseUnsupervisedSelector
 from feature.correlation import _Correlation
 from feature.linear import _Linear
 from feature.statistical import _Statistical
+from feature.text_based import _TextBased
 from feature.tree_based import _TreeBased
 from feature.utils import Num, check_true, Constants, normalize_columns
 from feature.variance import _Variance
-
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -62,10 +58,10 @@ class SelectionMethod(NamedTuple):
 
         Pearson is parametric while Kendall Tau and Spearman are non-parametric ranking methods.
 
-        The strength of the relationship between X and Y is
+        The strength of the relationship between X and y is
         sometimes expressed by squaring the correlation coefficient and multiplying by 100.
         The resulting statistic is known as variance explained (or R2).
-        Example: a correlation of 0.5 means 0.5^2x100 = 25% of the variance in Y is "explained" or predicted X.
+        Example: a correlation of 0.5 means 0.5^2x100 = 25% of the variance in y is "explained" or predicted by X.
 
         Randomness:
         Behavior is deterministic, does not depend on seed.
@@ -93,7 +89,7 @@ class SelectionMethod(NamedTuple):
 
     class Linear(NamedTuple):
         """
-        Linear Regression for (X, Y)
+        Linear Regression for (X, y)
         Suited for data that is not noisy or
         there is a lot of data compared to the number of features
         and the features are relatively independent.
@@ -111,7 +107,7 @@ class SelectionMethod(NamedTuple):
             - Ridge regression is good for data interpretation due to its stability.
                 Useful features tend to have non-zero coefficients.
 
-        Loss function becomes minimize E(X,Y) + α∥w∥, where
+        Loss function becomes minimize E(X,y) + α∥w∥, where
             - w is the vector of model coefficients,
             - ∥⋅∥ is typically L1 or L2 norm, and
             - α is a tunable free parameter, specifying the amount of regularization
@@ -128,7 +124,8 @@ class SelectionMethod(NamedTuple):
 
         L2 Ridge Regularization:
         L2 norm adds the penalty term (α∑wi^2) to the loss function.
-        Since the coefficients are squared in the penalty expression, it forces the coefficient to be spread out more equally.
+        Since the coefficients are squared in the penalty expression, it forces the coefficient
+        to be spread out more equally.
         Correlated features end up receiving similar coefficients, which can lead to stable results.
         Compared to L1 models, coefficients do not differ as much on small delta changes
         In L2 regularization, a predictive feature gets a non-zero coefficient,
@@ -229,12 +226,13 @@ class SelectionMethod(NamedTuple):
             check_true(self.num_features > 0, ValueError("Num features must be greater than zero."))
             if isinstance(self.num_features, float):
                 check_true(self.num_features <= 1, ValueError("Num features ratio must be between [0..1]."))
-            check_true(self.method in ["anova", "chi_square", "mutual_info", "variance_inflation"], # "maximal_info" dropped
+            # "maximal_info" dropped
+            check_true(self.method in ["anova", "chi_square", "mutual_info", "variance_inflation"],
                        ValueError("Statistical method can only be anova, chi_square, or mutual_info."))
 
     class TreeBased(NamedTuple):
         """
-        Tree-based methods for (X, Y) which uses RandomForestRegressor and RandomForestClassifier
+        Tree-based methods for (X, y) which uses RandomForestRegressor and RandomForestClassifier
 
         Randomness:
         Behavior is non-deterministic, depends on seed
@@ -270,6 +268,152 @@ class SelectionMethod(NamedTuple):
                                                        CatBoostClassifier, CatBoostRegressor)),
                            ValueError("Unknown tree-based estimator" + str(self.estimator)))
 
+    class TextBased(NamedTuple):
+        """
+        Text-based method for selecting features/columns from (X_textual, Y).
+        Unlike other selection methods, this method operates on textual data, X_textual.
+        Unlike other selection methods, this method operates on a matrix of Y labels.
+        In this setting, each column/feature in X_textual is considered to an item with textual description.
+        Similarly, each column in Y corresponds to an item.
+        The rows of Y represents labels that are covered by each item.
+        The number of columns in X_textual and Y should match.
+
+        By default, the goal is to select the minimum number of items from X_textual that
+        maximizes the item diversity of the text featurization of items (controlled by the featurization method)
+        while also maximizing the coverage of labels given in Y.
+        It uses a multi-objective optimization based on set covering formulation as shown in [1,2].
+
+        References:
+        [1] Kadioglu et. al., Optimized Item Selection to Boost Exploration for Recommender Systems, CPAIOR'21
+        [2] Kleynhans et. al., Active Learning Meets Optimized Item Selection, DSO@IJCAI'21
+
+        Randomness:
+        Behavior for non-deterministic optimization methods depends on seed.
+        Below are the sources of randomness in each optimization method:
+            * random needs to set a seed
+            * greedy needs to set a seed as there is a source of randomness in the initialization of
+              the Lagrangian multiplier.
+            * kmeans needs to set a seed since it uses random initialization of cluster centroids.
+              Even with the same random seed, the starting positions of centroids can differ due to various factors.
+              Therefore, it also needs to set a random seed of the NumPy and Scikit-Learn packages.
+            * exact needs to set a seed in the case of calculating diversity cost.
+
+        Infeasibility:
+        When the labels are infeasible, the selector will return an empty dataframe as the final selection.
+        A test is designed to check whether the selector returns an empty selection by verifying that there is
+        at least one selected column for each label in the infeasible instance,
+        and then checking whether the 'feasible' variable is False.
+
+
+        Attributes
+        ----------
+        num_features : Num, optional
+            * If num_feature is integer value, select num_features.
+            * If num_feature is None, num_features defines by solving a set cover problem using unicost or diverse
+            Note that, the algorithm might choose a less number of features depending on other parameters.
+            Hence, this parameter should be treated as the "maximum" number of features.
+
+        featurization_method :
+            TextWiser object to featurize items/features in X_textual.
+            This parameter does not effect the following options:
+                - Random with num_features = num_features and cost_metric = diverse
+                - Random with num_features = num_features or None and cost_metric = unicost
+                - Greedy with num_features = num_features or None and cost_metric = unicost
+
+        optimization_method : str, optional
+            * random: This method finds a random solution by performing a random selection of features from
+                      the dataset of size selected_size without repetition for a fixed number of trials.
+                      The best solution that covers the most labels among all trials is returned.
+                      - num_features = given as input
+                        The cost_metric input argument is ignored in this case.
+                        The result of cost_metric equals to unicost or diverse will be the same.
+                      - num_features = None
+                        The number of features is computed by solving a set cover problem with
+                        the given cost metric.
+
+            * greedy: This method finds a greedy solution by adding features step-by-step
+                      using a greedy heuristic that covers the most labels.
+                      - num_features = given as input
+                        the given cost metric is to select num_features many items.
+                      - num_features = None
+                        The number of features is computed by solving a set cover problem with
+                        the given cost metric.
+
+            * kmeans: This method clusters the text featurization space into k clusters where k is either
+                      the given num_features, or, the solution of the exact unicost/diverse selection.
+                      Then, items/features close to the centroids are selected.
+                      - num_features = given as input
+                        The cost_metric argument is ignored in this case.
+                        The result does not depend on the cost metric.
+                      - num_features = None
+                        The number of features is computed by solving a set cover problem with
+                        the given cost metric.
+                      
+           * exact: This method finds the solution based on the multi-level optimization [1,2].
+                    There are four different settings depending on the number of selected features and cost metrics.
+                    - num_features = given as input
+                      -- cost_metric = unicost
+                         Solve the set cover problem with unicost.
+                         If the number of selected features is greater than num_features,
+                         then a max cover problem is solved to select the optimal subset of features
+                         that covers the maximum number of rows without exceeding the given num_features.
+
+                      -- cost_metric = diverse
+                         Solve the set cover problem with unicost = k
+                         Compute the diversity cost for selected features using KMeans(k).
+                         Then diversity cost is used to solve the second set cover problem
+                         to find most diverse features.
+                         If the number of selected features is greater than num_features,
+                         then a max cover problem is solved to select the optimal subset of features
+                         that covers the maximum number of rows without exceeding the given num_features.
+                     - num_features = None
+                       -- cost_metric = unicost
+                          solve set cover problem with unicost.
+                       -- cost_metric = diverse
+                          solve the set cover problem with unicost = k
+                          Compute diversity cost for selected features using KMeans(k),
+                          Then diversity cost is used to solve the second set cover problem
+                          to find most diverse features.
+
+        cost_metric : str, optional;
+            * unicost: Each feature incurs a cost of one when included in the selection.
+                       For random this parameter has no impact.
+            * diverse: Each feature incurs a cost equivalent to the distance to its closest centroid
+                       in the latent space obtained from the text featurization of content.
+                       The centroids are found by clustering the text featurization space into k-clusters,
+                       where k is either the solution of the exact unicost selection, or, the given num_features.
+
+       trials: int, optional;
+            The number of random trials to perform. Only effective for the random method.
+            The best solution that covers the most labels among all trials is returned.
+        """
+
+        # Default values
+        num_features: Union[int, None]
+        featurization_method: TextWiser = TextWiser(Embedding.TfIdf(min_df=10), Transformation.NMF(n_components=30))
+        optimization_method: str = "exact"
+        cost_metric: str = "diverse"
+        trials: int = 10
+
+        def _validate(self):
+            if self.num_features is not None:
+                check_true(isinstance(self.num_features, (int, float)), TypeError("Num features must a number."))
+                check_true(self.num_features > 0, ValueError("Num features must be greater than zero."))
+                if isinstance(self.num_features, float):
+                    check_true(self.num_features <= 1, ValueError("Num features ratio must be between [0..1]."))
+
+            check_true(isinstance(self.featurization_method, TextWiser),
+                       ValueError("Unknown featurization method" + str(self.featurization_method)))
+
+            check_true(self.optimization_method in ["exact", "greedy", "kmeans", "random"],
+                       ValueError("Optimization method can only be exact, greedy, kmeans, random."))
+
+            check_true(self.cost_metric in ["unicost", "diverse", None],
+                       ValueError("Cost metric can only be unicost or diverse."))
+
+            check_true(isinstance(self.trials, int) and self.trials > 0,
+                       ValueError("Number of trials must be a positive integer!"))
+
     class Variance(NamedTuple):
         """
         Unsupervised Feature selector that removes all low-variance features.
@@ -284,7 +428,7 @@ class SelectionMethod(NamedTuple):
 
         Randomness:
         Behavior is deterministic.
-        However when results might differ when threshold = 0 vs. threshold != 0
+        However, when results might differ when threshold = 0 vs. threshold != 0
 
         Attributes
         ----------
@@ -337,6 +481,7 @@ class Selective:
     def __init__(self, selection_method: Union[SelectionMethod.Correlation,
                                                SelectionMethod.Linear,
                                                SelectionMethod.TreeBased,
+                                               SelectionMethod.TextBased,
                                                SelectionMethod.Statistical,
                                                SelectionMethod.Variance],
                  seed: int = Constants.default_seed):
@@ -381,6 +526,12 @@ class Selective:
                                 self.selection_method.regularization, self.selection_method.alpha)
         elif isinstance(selection_method, SelectionMethod.TreeBased):
             self._imp = _TreeBased(self.seed, self.selection_method.num_features, self.selection_method.estimator)
+        elif isinstance(selection_method, SelectionMethod.TextBased):
+            self._imp = _TextBased(self.seed, self.selection_method.num_features,
+                                   self.selection_method.featurization_method,
+                                   self.selection_method.optimization_method,
+                                   self.selection_method.cost_metric,
+                                   self.selection_method.trials)
         elif isinstance(selection_method, SelectionMethod.Statistical):
             self._imp = _Statistical(self.seed, self.selection_method.num_features, self.selection_method.method)
         elif isinstance(selection_method, SelectionMethod.Variance):
@@ -388,7 +539,8 @@ class Selective:
         else:
             raise ValueError("Unknown Selection Method " + str(selection_method))
 
-    def fit(self, data: pd.DataFrame, labels: Optional[pd.Series] = None) -> NoReturn:
+    # def fit(self, data: pd.DataFrame, labels: Optional[pd.Series, pd.DataFrame] = None) -> NoReturn:
+    def fit(self, data: pd.DataFrame, labels: Optional[Union[pd.Series, pd.DataFrame]] = None) -> NoReturn:
 
         # Validate
         self._validate_fit(data, labels)
@@ -414,7 +566,10 @@ class Selective:
         # Return transformed data
         return self._imp.transform(data)
 
-    def fit_transform(self, data: pd.DataFrame, labels: Optional[pd.Series] = None) -> pd.DataFrame:
+    # def fit_transform(self, data: pd.DataFrame, labels: Optional[pd.Series, pd.DataFrame] = None) -> pd.DataFrame:
+    def fit_transform(self, data: pd.DataFrame, labels: Optional[Union[pd.Series, pd.DataFrame]] = None) \
+            -> pd.DataFrame:
+
         self.fit(data, labels)
         return self.transform(data)
 
@@ -438,6 +593,7 @@ class Selective:
         # Selection Method type
         check_true(isinstance(selection_method, (SelectionMethod.Correlation,
                                                  SelectionMethod.Linear,
+                                                 SelectionMethod.TextBased,
                                                  SelectionMethod.TreeBased,
                                                  SelectionMethod.Statistical,
                                                  SelectionMethod.Variance)),
@@ -448,6 +604,8 @@ class Selective:
 
     def _validate_fit(self, data, labels):
 
+        check_true(data is not None, ValueError("Data cannot be none"))
+
         # VIF is a Statistical methods, hence BaseSupervised, but does not need labels
         if isinstance(self._imp, _Statistical) and self.selection_method.method == "variance_inflation":
             pass
@@ -455,7 +613,12 @@ class Selective:
             # Supervised implementors, except VIF, require labels
             if isinstance(self._imp, _BaseSupervisedSelector):
                 check_true(labels is not None, ValueError("Labels column cannot be none"))
-                check_true(isinstance(labels, pd.Series), ValueError("Labels should be a pandas series/column."))
+
+                # For text_based labels is a dataframe
+                if isinstance(self._imp, _TextBased):
+                    check_true(isinstance(labels, pd.DataFrame), ValueError("Labels should be a pandas dataframe."))
+                else:
+                    check_true(isinstance(labels, pd.Series), ValueError("Labels should be a pandas series/column."))
 
         if not hasattr(self.selection_method, 'num_features'):
             return
