@@ -13,7 +13,6 @@ from typing import Dict, Union, NamedTuple, NoReturn, Tuple, Optional
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from catboost import CatBoostClassifier, CatBoostRegressor
 from joblib import Parallel, delayed
 from lightgbm import LGBMClassifier, LGBMRegressor
 from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
@@ -242,7 +241,7 @@ class SelectionMethod(NamedTuple):
         num_features : Num, optional
             If integer, select top num_features.
             If float, select the top num_features percentile.
-        estimator : tree-model, xgboost, ligthgbm, catboost
+        estimator : tree-model, xgboost, ligthgbm
         """
         num_features: Num = 0.0
         estimator: Optional[Union[RandomForestRegressor, RandomForestClassifier,
@@ -250,8 +249,7 @@ class SelectionMethod(NamedTuple):
                                   ExtraTreesClassifier, ExtraTreesRegressor,
                                   LGBMClassifier, LGBMRegressor,
                                   GradientBoostingClassifier, GradientBoostingRegressor,
-                                  AdaBoostClassifier, AdaBoostRegressor,
-                                  CatBoostClassifier, CatBoostRegressor]] = None
+                                  AdaBoostClassifier, AdaBoostRegressor]] = None
 
         def _validate(self):
             check_true(isinstance(self.num_features, (int, float)), TypeError("Num features must a number."))
@@ -264,8 +262,7 @@ class SelectionMethod(NamedTuple):
                                                        ExtraTreesClassifier, ExtraTreesRegressor,
                                                        LGBMClassifier, LGBMRegressor,
                                                        GradientBoostingClassifier, GradientBoostingRegressor,
-                                                       AdaBoostClassifier, AdaBoostRegressor,
-                                                       CatBoostClassifier, CatBoostRegressor)),
+                                                       AdaBoostClassifier, AdaBoostRegressor)),
                            ValueError("Unknown tree-based estimator" + str(self.estimator)))
 
     class TextBased(NamedTuple):

@@ -1,4 +1,3 @@
-catboost
 joblib
 lightgbm
 numpy

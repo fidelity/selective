@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: GNU GPLv3
 
 
-from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 from sklearn.datasets import fetch_california_housing, load_iris
 from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
@@ -295,31 +294,6 @@ class TestTree(BaseTest):
         data, label = get_data_label(load_iris())
 
         method = SelectionMethod.TreeBased(num_features=2, estimator=AdaBoostClassifier(random_state=Constants.default_seed))
-        selector = Selective(method)
-        selector.fit(data, label)
-        subset = selector.transform(data)
-
-        # Reduced columns
-        self.assertEqual(subset.shape[1], 2)
-        self.assertListEqual(list(subset.columns), ['petal length (cm)', 'petal width (cm)'])
-
-    def test_tree_estimator_catboost_regress_top_k(self):
-        data, label = get_data_label(fetch_california_housing())
-        data = data.drop(columns=["Latitude", "Longitude", "Population"])
-
-        method = SelectionMethod.TreeBased(num_features=3, estimator=CatBoostRegressor(silent=True, random_state=Constants.default_seed))
-        selector = Selective(method)
-        selector.fit(data, label)
-        subset = selector.transform(data)
-
-        # Reduced columns
-        self.assertEqual(subset.shape[1], 3)
-        self.assertListEqual(list(subset.columns), ['MedInc', 'HouseAge', 'AveOccup'])
-
-    def test_tree_estimator_catboost_classif_top_k(self):
-        data, label = get_data_label(load_iris())
-
-        method = SelectionMethod.TreeBased(num_features=2, estimator=CatBoostClassifier(silent=True, random_state=Constants.default_seed))
         selector = Selective(method)
         selector.fit(data, label)
         subset = selector.transform(data)

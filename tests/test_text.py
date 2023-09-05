@@ -165,7 +165,7 @@ class TestText(BaseTest):
         self.assertEqual(data.shape[1], labels.shape[1])
 
         method = SelectionMethod.TextBased(num_features=None,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="random",
@@ -285,7 +285,7 @@ class TestText(BaseTest):
         self.assertEqual(data.shape[1], labels.shape[1])
 
         method = SelectionMethod.TextBased(num_features=3,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="greedy",
@@ -323,7 +323,7 @@ class TestText(BaseTest):
         self.assertEqual(data.shape[1], labels.shape[1])
 
         method = SelectionMethod.TextBased(num_features=None,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="greedy",
@@ -358,7 +358,7 @@ class TestText(BaseTest):
                                "item7": [1, 0, 0, 1, 0, 0, 1]})
 
         method = SelectionMethod.TextBased(num_features=2,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="kmeans",
@@ -396,7 +396,7 @@ class TestText(BaseTest):
                                "item7": [0, 1, 0, 0, 0, 0, 1]})
 
         method = SelectionMethod.TextBased(num_features=None,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="kmeans",
@@ -433,7 +433,7 @@ class TestText(BaseTest):
                                "item7": [0, 1, 0, 0, 0, 0, 1]})
 
         method = SelectionMethod.TextBased(num_features=None,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="kmeans",
@@ -563,7 +563,7 @@ class TestText(BaseTest):
         self.assertEqual(data.shape[1], labels.shape[1])
 
         method = SelectionMethod.TextBased(num_features=None,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="exact",
@@ -571,7 +571,7 @@ class TestText(BaseTest):
                                            trials=1)
 
         method2 = SelectionMethod.TextBased(num_features=None,
-                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                            Transformation.NMF(n_components=10,
                                                                                               random_state=123)),
                                             optimization_method="exact",
@@ -615,7 +615,7 @@ class TestText(BaseTest):
         self.assertEqual(data.shape[1], labels.shape[1])
 
         method = SelectionMethod.TextBased(num_features=2,  # num_features is less than the solution of set cover
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="exact",
@@ -623,7 +623,7 @@ class TestText(BaseTest):
                                            trials=1)  # Default cost metric is diverse
 
         method2 = SelectionMethod.TextBased(num_features=2,
-                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                            Transformation.NMF(n_components=10,
                                                                                               random_state=123)),
                                             optimization_method="exact",
