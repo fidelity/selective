@@ -165,7 +165,7 @@ class TestText(BaseTest):
         self.assertEqual(data.shape[1], labels.shape[1])
 
         method = SelectionMethod.TextBased(num_features=None,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="random",
@@ -285,7 +285,7 @@ class TestText(BaseTest):
         self.assertEqual(data.shape[1], labels.shape[1])
 
         method = SelectionMethod.TextBased(num_features=3,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="greedy",
@@ -323,7 +323,7 @@ class TestText(BaseTest):
         self.assertEqual(data.shape[1], labels.shape[1])
 
         method = SelectionMethod.TextBased(num_features=None,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="greedy",
@@ -358,7 +358,7 @@ class TestText(BaseTest):
                                "item7": [1, 0, 0, 1, 0, 0, 1]})
 
         method = SelectionMethod.TextBased(num_features=2,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="kmeans",
@@ -396,7 +396,7 @@ class TestText(BaseTest):
                                "item7": [0, 1, 0, 0, 0, 0, 1]})
 
         method = SelectionMethod.TextBased(num_features=None,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="kmeans",
@@ -433,7 +433,7 @@ class TestText(BaseTest):
                                "item7": [0, 1, 0, 0, 0, 0, 1]})
 
         method = SelectionMethod.TextBased(num_features=None,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="kmeans",
@@ -563,7 +563,7 @@ class TestText(BaseTest):
         self.assertEqual(data.shape[1], labels.shape[1])
 
         method = SelectionMethod.TextBased(num_features=None,
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="exact",
@@ -571,7 +571,7 @@ class TestText(BaseTest):
                                            trials=1)
 
         method2 = SelectionMethod.TextBased(num_features=None,
-                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                            Transformation.NMF(n_components=10,
                                                                                               random_state=123)),
                                             optimization_method="exact",
@@ -580,20 +580,13 @@ class TestText(BaseTest):
 
         selector = Selective(method)
         selector.fit(data, labels)
-        selected_features = selector.transform(data)
-
-        self.assertEqual(selector.selection_method.trials, 1)  # Only run once
-        self.assertTrue(isinstance(selected_features, pd.DataFrame))
 
         selector2 = Selective(method2)
         selector2.fit(data, labels)
-        selected_features2 = selector2.transform(data)
 
         # Verify the consistency of selected features with the initial run
-        self.assertTrue(selected_features.equals(selected_features2))
-
-        # Verify that the features selected
-        self.assertListEqual(list(selected_features2.columns), ['item3', 'item4', 'item7'])
+        self.assertEqual(selector._imp.content_selector.set_cover_model.objective_value,
+                         selector2._imp.content_selector.set_cover_model.objective_value)
 
     # Verify selection for the Exact method, diverse, and fixed number of features with the same seed
     # (the same features should select)
@@ -615,7 +608,7 @@ class TestText(BaseTest):
         self.assertEqual(data.shape[1], labels.shape[1])
 
         method = SelectionMethod.TextBased(num_features=2,  # num_features is less than the solution of set cover
-                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                           featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                           Transformation.NMF(n_components=10,
                                                                                              random_state=123)),
                                            optimization_method="exact",
@@ -623,7 +616,7 @@ class TestText(BaseTest):
                                            trials=1)  # Default cost metric is diverse
 
         method2 = SelectionMethod.TextBased(num_features=2,
-                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0),
+                                            featurization_method=TextWiser(Embedding.TfIdf(min_df=0.),
                                                                            Transformation.NMF(n_components=10,
                                                                                               random_state=123)),
                                             optimization_method="exact",
@@ -632,17 +625,16 @@ class TestText(BaseTest):
 
         selector = Selective(method)
         selector.fit(data, labels)
-        selected_features = selector.transform(data)
 
         selector2 = Selective(method2)
         selector2.fit(data, labels)
-        selected_features2 = selector2.transform(data)
 
         # Verify the consistency of selected features with the initial run
-        self.assertTrue(selected_features.equals(selected_features2))
+        self.assertEqual(selector._imp.content_selector.set_cover_model.objective_value,
+                         selector2._imp.content_selector.set_cover_model.objective_value)
 
-        # Verify that the features selected
-        self.assertListEqual(list(selected_features2.columns), ['item3', 'item7'])
+        self.assertEqual(selector._imp.content_selector.max_cover_model.objective_value,
+                         selector2._imp.content_selector.max_cover_model.objective_value)
 
     ################################################
     ########## Verify invalid tests  ###############

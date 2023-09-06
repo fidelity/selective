@@ -124,6 +124,10 @@ class ContentSelector:
         self.matrix = None
         self.text_embeddings = None
 
+        # Initialize models
+        self.set_cover_model = None
+        self.max_cover_model = None
+
     def run(self, input_df: pd.DataFrame, labels: pd.DataFrame, num_features: int,
             featurization_method: TextWiser, optimization_method: str = "exact",
             cost_metric: str = "diverse", trials: int = 10) -> List:
@@ -484,22 +488,22 @@ class ContentSelector:
     def _solve_set_cover(self, data: Data) -> List:
 
         # Create Model object
-        model = Model("Set Cover Model")
+        self.set_cover_model = Model("Set Cover Model")
 
         # Variables
-        x = [model.add_var(var_type=BINARY) for _ in data.X]
+        x = [self.set_cover_model.add_var(var_type=BINARY) for _ in data.X]
 
         # Constraint: every row should be covered
         for row in data.rows:
-            model.add_constr(xsum(data.matrix[row, i] * x[i] for i in data.X) >= 1)
+            self.set_cover_model.add_constr(xsum(data.matrix[row, i] * x[i] for i in data.X) >= 1)
 
         # Objective: minimize
-        model.objective = minimize(xsum(data.cost[i] * x[i] for i in data.X))
+        self.set_cover_model.objective = minimize(xsum(data.cost[i] * x[i] for i in data.X))
 
         # Solve
-        model.verbose = False
-        model.optimize()
-        check_true(model.status == OptimizationStatus.OPTIMAL, ValueError("Max Cover Error: "
+        self.set_cover_model.verbose = False
+        self.set_cover_model.optimize()
+        check_true(self.set_cover_model.status == OptimizationStatus.OPTIMAL, ValueError("Max Cover Error: "
                                                                           "optimal solution not found."))
 
         # Solution
@@ -507,9 +511,9 @@ class ContentSelector:
 
         if self.verbose:
             print("=" * 40)
-            print("SET COVER OBJECTIVE:", model.objective_value)
+            print("SET COVER OBJECTIVE:", self.set_cover_model.objective_value)
             print("SELECTED:", selected)
-            print("STATUS:", model.status)
+            print("STATUS:", self.set_cover_model.status)
             print("=" * 40)
 
         # Return
@@ -518,54 +522,54 @@ class ContentSelector:
     def _solve_max_cover(self, data: Data, selected: List) -> List:
 
         # Model
-        model = Model("Max Cover Model")
+        self.max_cover_model = Model("Max Cover Model")
 
         # Variables
-        x = [model.add_var(var_type=BINARY) for _ in data.X]
-        is_row_covered = [model.add_var(var_type=BINARY) for _ in data.rows]
-        num_row_covered = model.add_var(var_type=INTEGER)
+        x = [self.max_cover_model.add_var(var_type=BINARY) for _ in data.X]
+        is_row_covered = [self.max_cover_model.add_var(var_type=BINARY) for _ in data.rows]
+        num_row_covered = self.max_cover_model.add_var(var_type=INTEGER)
 
         # Constraint: Link between x and is_row_covered
         for row in data.rows:
             for i in data.X:
                 # if any selected column has the label, then the row would be covered
-                model.add_constr(data.matrix[row, i] * x[i] <= is_row_covered[row])
+                self.max_cover_model.add_constr(data.matrix[row, i] * x[i] <= is_row_covered[row])
             # total selected
-            model.add_constr(xsum(data.matrix[row, i] * x[i] for i in data.X) >= is_row_covered[row])
+            self.max_cover_model.add_constr(xsum(data.matrix[row, i] * x[i] for i in data.X) >= is_row_covered[row])
 
         # Constraint: Link is_row_covered with num_row_covered
-        model.add_constr(xsum(is_row_covered[row] for row in data.rows) == num_row_covered)
+        self.max_cover_model.add_constr(xsum(is_row_covered[row] for row in data.rows) == num_row_covered)
 
         # Constraint: If selected is given, discard columns that are not part of selection
         for i in data.X:
             if i not in selected:
-                model.add_constr(x[i] == 0)
+                self.max_cover_model.add_constr(x[i] == 0)
 
         # Constraint: limit number of selected to max_cover_size
-        model.add_constr(xsum(x[i] for i in data.X) <= self.num_features)
+        self.max_cover_model.add_constr(xsum(x[i] for i in data.X) <= self.num_features)
 
         # Objective: maximize "row" coverage (not the whole coverage of 1s)
-        model.objective = maximize(xsum(is_row_covered[row] for row in data.rows))
+        self.max_cover_model.objective = maximize(xsum(is_row_covered[row] for row in data.rows))
 
         # Solve
-        model.verbose = False
-        model.optimize()
+        self.max_cover_model.verbose = False
+        self.max_cover_model.optimize()
 
         # Solution
         selected = [i for i in data.X if float(x[i].x) >= 0.99]
 
         if self.verbose:
             print("=" * 40)
-            print("MAX COVER OBJECTIVE:", model.objective_value)
+            print("MAX COVER OBJECTIVE:", self.max_cover_model.objective_value)
             print("NUM ROWS COVERED:", num_row_covered.x,
                   "coverage: {:.2f}".format(num_row_covered.x / data.matrix.shape[0]))
             print("SIZE:", len(selected),
                   "reduction: {:.2f}".format((data.matrix.shape[1] - len(selected)) / data.matrix.shape[1]))
             print("SELECTED:", selected)
-            print("STATUS:", model.status)
+            print("STATUS:", self.max_cover_model.status)
             print("=" * 40)
 
-        check_true(model.status == OptimizationStatus.OPTIMAL, ValueError("Max Cover Error: "
+        check_true(self.max_cover_model.status == OptimizationStatus.OPTIMAL, ValueError("Max Cover Error: "
                                                                           "optimal solution not found."))
 
         # Return
