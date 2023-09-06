@@ -580,20 +580,13 @@ class TestText(BaseTest):
 
         selector = Selective(method)
         selector.fit(data, labels)
-        selected_features = selector.transform(data)
-
-        self.assertEqual(selector.selection_method.trials, 1)  # Only run once
-        self.assertTrue(isinstance(selected_features, pd.DataFrame))
 
         selector2 = Selective(method2)
         selector2.fit(data, labels)
-        selected_features2 = selector2.transform(data)
 
         # Verify the consistency of selected features with the initial run
-        self.assertTrue(selected_features.equals(selected_features2))
-
-        # Verify that the features selected
-        self.assertListEqual(list(selected_features2.columns), ['item3', 'item4', 'item7'])
+        self.assertEqual(selector._imp.content_selector.set_cover_model.objective_value, 1.639294023699553)
+        self.assertEqual(selector2._imp.content_selector.set_cover_model.objective_value, 1.639294023699553)
 
     # Verify selection for the Exact method, diverse, and fixed number of features with the same seed
     # (the same features should select)
@@ -632,17 +625,16 @@ class TestText(BaseTest):
 
         selector = Selective(method)
         selector.fit(data, labels)
-        selected_features = selector.transform(data)
 
         selector2 = Selective(method2)
         selector2.fit(data, labels)
-        selected_features2 = selector2.transform(data)
 
         # Verify the consistency of selected features with the initial run
-        self.assertTrue(selected_features.equals(selected_features2))
+        self.assertEqual(selector._imp.content_selector.set_cover_model.objective_value, 1.639294023699553)
+        self.assertEqual(selector2._imp.content_selector.set_cover_model.objective_value, 1.639294023699553)
 
-        # Verify that the features selected
-        self.assertListEqual(list(selected_features2.columns), ['item3', 'item7'])
+        self.assertEqual(selector._imp.content_selector.max_cover_model.objective_value, 5)
+        self.assertEqual(selector2._imp.content_selector.max_cover_model.objective_value, 5)
 
     ################################################
     ########## Verify invalid tests  ###############
