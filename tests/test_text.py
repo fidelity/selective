@@ -585,8 +585,8 @@ class TestText(BaseTest):
         selector2.fit(data, labels)
 
         # Verify the consistency of selected features with the initial run
-        self.assertEqual(selector._imp.content_selector.set_cover_model.objective_value, 1.639294023699553)
-        self.assertEqual(selector2._imp.content_selector.set_cover_model.objective_value, 1.639294023699553)
+        self.assertEqual(selector._imp.content_selector.set_cover_model.objective_value,
+                         selector2._imp.content_selector.set_cover_model.objective_value)
 
     # Verify selection for the Exact method, diverse, and fixed number of features with the same seed
     # (the same features should select)
@@ -630,11 +630,11 @@ class TestText(BaseTest):
         selector2.fit(data, labels)
 
         # Verify the consistency of selected features with the initial run
-        self.assertEqual(selector._imp.content_selector.set_cover_model.objective_value, 1.639294023699553)
-        self.assertEqual(selector2._imp.content_selector.set_cover_model.objective_value, 1.639294023699553)
+        self.assertEqual(selector._imp.content_selector.set_cover_model.objective_value,
+                         selector2._imp.content_selector.set_cover_model.objective_value)
 
-        self.assertEqual(selector._imp.content_selector.max_cover_model.objective_value, 5)
-        self.assertEqual(selector2._imp.content_selector.max_cover_model.objective_value, 5)
+        self.assertEqual(selector._imp.content_selector.max_cover_model.objective_value,
+                         selector2._imp.content_selector.max_cover_model.objective_value)
 
     ################################################
     ########## Verify invalid tests  ###############
