@@ -1,6 +1,3 @@
-[![ci](https://github.com/fidelity/selective/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/fidelity/selective/actions/workflows/ci.yml) [![PyPI version fury.io](https://badge.fury.io/py/selective.svg)](https://pypi.python.org/pypi/selective/) [![PyPI license](https://img.shields.io/pypi/l/selective.svg)](https://pypi.python.org/pypi/selective/) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) [![Downloads](https://static.pepy.tech/personalized-badge/selective?period=total&units=international_system&left_color=grey&right_color=orange&left_text=Downloads)](https://pepy.tech/project/selective)
-
-
 # Optimized Item Selection Datasets
 
 We provide the datasets that are used to test the multi-level optimization framework ([CPAIOR'21](https://link.springer.com/chapter/10.1007/978-3-030-78230-6_27), [DSO@IJCAI'22](https://arxiv.org/abs/2112.03105)), for solving Item Selection Problem (ISP) to boost exploration in Recommender Systems.
