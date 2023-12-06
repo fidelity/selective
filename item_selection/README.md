@@ -4,12 +4,12 @@ We provide the datasets that are used to test the multi-level optimization frame
 
 The datasets include:
 
-* [**GoodReads datasets**](book%20recommenders/) for book recommenders. Two datasets are randomly selected from the source data [GoodReads Book Reviews](https://dl.acm.org/doi/10.1145/3240323.3240369), a small version with 1000 items and a large version with 10,000 items. For book recommendations, there are 11 different genres (e.g., fiction, non-fiction, children), 231 different publishers (e.g. Vintage, Penguin Books, Mariner Books), and genre-publisher pairs. This leads to 574 and 1,322 unique book labels for the small and large datasets, respectively.
+* [**GoodReads datasets**](book_recommenders/) for book recommenders. Two datasets are randomly selected from the source data [GoodReads Book Reviews](https://dl.acm.org/doi/10.1145/3240323.3240369), a small version with 1000 items and a large version with 10,000 items. For book recommendations, there are 11 different genres (e.g., fiction, non-fiction, children), 231 different publishers (e.g. Vintage, Penguin Books, Mariner Books), and genre-publisher pairs. This leads to 574 and 1,322 unique book labels for the small and large datasets, respectively.
 
 
-* [**MovieLens datasets**](movie%20recommenders/) for movie recommenders. We also provide two versions of datasets, a small version with 1000 items and a large version with 10,000 items, randomly selected from the source data [Movie Recommendations](https://dl.acm.org/doi/10.1145/2827872). There are 19 different genres (e.g. action, comedy, drama, romance), 587 different producers, 34 different languages (e.g. English, French, Mandarin), and genre-language pairs. This leads to 473 and 1,011 unique movie labels for the small and large datasets, respectively.
+* [**MovieLens datasets**](movie_recommenders/) for movie recommenders. We also provide two versions of datasets, a small version with 1000 items and a large version with 10,000 items, randomly selected from the source data [MovieLens Movie Ratings](https://dl.acm.org/doi/10.1145/2827872). There are 19 different genres (e.g. action, comedy, drama, romance), 587 different producers, 34 different languages (e.g. English, French, Mandarin), and genre-language pairs. This leads to 473 and 1,011 unique movie labels for the small and large datasets, respectively.
 
-Each version of dataset in GoodReads and MovieLens contains a `*_data.csv` file that has items' text contents, i.e. title + description, and a `*_label.csv` with binarized category labels where each item may cover multiple labels. Each column in the csv file is for one item, indexed by book or movie id from the original source data.
+Each version of dataset in GoodReads and MovieLens contains a `*_data.csv` file that has items' text contents, i.e. title + description, and a `*_label.csv` with label meanings, i.e. genre or language, and binarized 0/1 label. Each column in the csv file is for one item, indexed by book or movie id. The order of columns in these two files should be the same.
 
 By solving for ISP with Text-based Selection in Selective, we select a smaller subset of items within a fixed bound, with maximized diversity in the latent embedding space of items and maximized coverage of labels.
 
@@ -25,9 +25,11 @@ data = pd.read_csv("goodreads_1k_data.csv").astype(str)
 
 # Load Labels 
 labels = pd.read_csv("goodreads_1k_label.csv")
+labels.set_index('label', inplace=True)
+
 
 # TextWiser featurization method to create text embeddings
-textwiser = TextWiser(Embedding.TfIdf(), Transformation.NMF(n_components=20))
+textwiser = TextWiser(Embedding.TfIdf(), Transformation.NMF(n_components=20, random_state=1234))
 
 # Text-based selection
 selector = Selective(SelectionMethod.TextBased(num_features=30, featurization_method=textwiser))
