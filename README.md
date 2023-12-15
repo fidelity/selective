@@ -18,11 +18,14 @@ Each column in the csv file is for an item, indexed by book/movie ID. The order 
 By solving the ISP with Text-based Selection in Selective, we select a smaller subset of items with maximum diversity in the latent embedding space of items and maximum coverage of labels.
 
 ## Quick Start
+To run the example, install [Selective](https://github.com/fidelity/selective) by `pip install selective`
 ```python
 # Import Selective (for text-based selection) and TextWiser (for embedding space)
 import pandas as pd
-from feature.selector import Selective, SelectionMethod
+from datasets import load_dataset
 from textwiser import TextWiser, Embedding, Transformation
+from feature.selector import Selective, SelectionMethod
+
 
 # Load Text Contents
 data = load_dataset('skadio/optimized_item_selection', data_files='book_recommenders_data/goodreads_1k_data.csv', split='train')
