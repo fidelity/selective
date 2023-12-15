@@ -25,10 +25,12 @@ from feature.selector import Selective, SelectionMethod
 from textwiser import TextWiser, Embedding, Transformation
 
 # Load Text Contents
-data = pd.read_csv("goodreads_1k_data.csv").astype(str)
+data = load_dataset('skadio/optimized_item_selection', data_files='book_recommenders_data/goodreads_1k_data.csv', split='train')
+data = data.to_pandas()
 
 # Load Labels 
-labels = pd.read_csv("goodreads_1k_label.csv")
+labels = load_dataset('skadio/optimized_item_selection', data_files='book_recommenders_data/goodreads_1k_label.csv', split='train')
+labels = labels.to_pandas()
 labels.set_index('label', inplace=True)
 
 # TextWiser featurization method to create text embeddings
@@ -47,24 +49,26 @@ print("Reduction:", list(subset.columns))
 Text-based Selection provides access to multiple selection methods. The following configurations are 
 available to apply these methods:
 
-- (Default) Solve for Problem *P_max_cover@t* in [CPAIOR'21] - Selecting a subset of items that 
+- (Default) Solve for Problem *P_max_cover@t* in **CPAIOR'21** - Selecting a subset of items that 
 maximizes coverage of labels and maximizes the diversity in latent embedding space within an upper 
 bound on subset size.
 ```python
 selector = Selective(SelectionMethod.TextBased(num_features=30, 
-                                               featurization_method=textwiser
+                                               featurization_method=textwiser,
                                                optimization_method='exact', 
                                                cost_metric='diverse'))
 ```
-- Solve for Problem *P_unicost* in [CPAIOR'21] - Selecting a subset of items that covers all labels.
+- Solve for Problem *P_unicost* in **CPAIOR'21** - Selecting a subset of items that covers all labels.
 ```python
-selector = Selective(SelectionMethod.TextBased(optimization_method='exact', 
+selector = Selective(SelectionMethod.TextBased(num_features=None, 
+                                               optimization_method='exact', 
                                                cost_metric='unicost'))
 ```
-- Solve for Problem *P_diverse* in [CPAIOR'21] - Selecting a subset of items with maximized diversity 
+- Solve for Problem *P_diverse* in **CPAIOR'21** - Selecting a subset of items with maximized diversity 
 in the latent embedding space while still maintaining the coverage over all labels.
 ```python
-selector = Selective(SelectionMethod.TextBased(featurization_method=textwiser, 
+selector = Selective(SelectionMethod.TextBased(num_features=None,
+                                               featurization_method=textwiser, 
                                                optimization_method='exact', 
                                                cost_metric='diverse'))
 ```
@@ -77,7 +81,7 @@ selector = Selective(SelectionMethod.TextBased(num_features=30,
 - Selecting a subset by performing random selection. If num_features is not set, subset size is defined 
 by solving #2.
 ```python
-selector = Selective(SelectionMethod.TextBased(optimization_method='random'))
+selector = Selective(SelectionMethod.TextBased(num_features=None, optimization_method='random'))
 ```
 - Selecting a subset by performing random selection. Subset size is defined by num_features.
 ```python
@@ -88,7 +92,8 @@ selector = Selective(SelectionMethod.TextBased(num_features=30,
 cost_metric, i.e. `diverse` by default or `unicost`. If num_features is not set, subset size is defined 
 by solving #2.
 ```python
-selector = Selective(SelectionMethod.TextBased(optimization_method='greedy',
+selector = Selective(SelectionMethod.TextBased(num_features=None, 
+                                               optimization_method='greedy',
                                                cost_metric='unicost'))
 ```
 - Selecting a subset by adding an item each time using a greedy heuristic in selection with a given
@@ -102,7 +107,7 @@ selector = Selective(SelectionMethod.TextBased(num_features=30,
 are selected. If num_features is not set, subset size is defined by solving #2. `cost_metric` argument 
 is not used in this method.
 ```python
-selector = Selective(SelectionMethod.TextBased(optimization_method='kmeans'))
+selector = Selective(SelectionMethod.TextBased(num_features=None, optimization_method='kmeans'))
 ```
 - Selecting a subset by clustering items into a number of clusters and the items close to the centroids 
 are selected. `cost_metric` argument is not used in this method.
