@@ -194,4 +194,4 @@ python -m unittest discover tests
 Please submit bug reports and feature requests as [Issues](https://github.com/fidelity/selective/issues).
 
 ## License
-Selective is licensed under the [GNU GPL 3.0.](https://github.com/fidelity/selective/blob/master/LICENSE)
+Selective is licensed under [Apache 2.0](https://github.com/fidelity/selective/blob/master/LICENSE.md)

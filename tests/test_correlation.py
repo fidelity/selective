@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright FMR LLC <opensource@fidelity.com>
-# SPDX-License-Identifier: GNU GPLv3
+# SPDX-License-Identifier: Apache-2.0
 
 from sklearn.datasets import fetch_california_housing
 from feature.utils import get_data_label

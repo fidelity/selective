@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright FMR LLC <opensource@fidelity.com>
-# SPDX-License-Identifier: GNU GPLv3
+# SPDX-License-Identifier: Apache-2.0
 
 from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor

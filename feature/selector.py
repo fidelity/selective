@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright FMR LLC <opensource@fidelity.com>
-# SPDX-License-Identifier: GNU GPLv3
+# SPDX-License-Identifier: Apache-2.0
 
 """
 This module defines the public interface of the **Selective Library** for feature selection.
