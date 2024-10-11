@@ -191,7 +191,7 @@ python -m unittest discover tests
 
 ## Citation
 
-If you use Jurity in a publication, please cite it as:
+If you use Selective in a publication, please cite it as:
 
 ```bibtex
     @article{DBLP:journals/amai/HaDVH98,
