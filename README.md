@@ -4,9 +4,6 @@
 # Selective: Feature Selection Library
 **Selective** is a white-box feature selection library that supports supervised and unsupervised selection methods for classification and regression tasks. 
 
-Selective also provides optimized item selection based on diversity of text embeddings (via [TextWiser](https://github.com/fidelity/textwiser)) and 
-the coverage of binary labels by solving a multi-objective optimization problem ([CPAIOR'21](https://link.springer.com/chapter/10.1007/978-3-030-78230-6_27), [DSO@IJCAI'22](https://arxiv.org/abs/2112.03105)). The approach showed to speed-up online experimentation significantly and boost recommender systems [NVIDIA GTC'22](https://www.youtube.com/watch?v=_v-B2nRy79w).  
-
 The library provides:
 
 * Simple to complex selection methods: Variance, Correlation, Statistical, Linear, Tree-based, or Customized.
@@ -15,6 +12,9 @@ The library provides:
 * Automated task detection. No need to know what feature selection method works with what machine learning task.
 * Benchmarking multiple selectors using cross-validation with built-in parallelization.
 * Inspection of the results and feature importance. 
+
+Selective also provides optimized item selection based on diversity of text embeddings via [TextWiser](https://github.com/fidelity/textwiser) and 
+coverage of binary labels via multi-objective optimization ([AMAI'24](https://trebuchet.public.springernature.app/get_content/2c9eb6df-5c2b-42bc-89d6-4e3eb8bc8799?utm_source=rct_congratemailt&utm_medium=email&utm_campaign=nonoa_20240405&utm_content=10.1007/s10472-024-09941-x), [CPAIOR'21](https://link.springer.com/chapter/10.1007/978-3-030-78230-6_27), [DSO@IJCAI'22](https://arxiv.org/abs/2112.03105)). This approach speeds-up online experimentation and boosts recommender systems significantly as presented at [NVIDIA GTC'22](https://www.youtube.com/watch?v=_v-B2nRy79w).  
 
 Selective is developed by the Artificial Intelligence Center of Excellence at Fidelity Investments.
 
@@ -187,6 +187,22 @@ pip install dist/selective-X.X.X-py3-none-any.whl
 ```
 cd selective
 python -m unittest discover tests
+```
+
+## Citation
+
+If you use Jurity in a publication, please cite it as:
+
+```bibtex
+    @article{DBLP:journals/amai/HaDVH98,
+    author       = {Kad\i{}o\u{g}lu, Serdar and Kleynhans, Bernard and Wang, Xin},
+    title        = {Integrating optimized item selection with active learning for continuous exploration in recommender systems},
+    journal      = {Ann. Math. Artif. Intell.},
+    year         = {2024},
+    url          = {https://doi.org/10.1007/s10472-024-09941-x},
+    doi          = {10.1007/s10472-024-09941-x},
+    }
+}
 ```
 
 ## Support
