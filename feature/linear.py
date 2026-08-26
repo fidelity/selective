@@ -14,7 +14,7 @@ from feature.utils import Num, get_task_string
 
 class _Linear(_BaseSupervisedSelector, _BaseDispatcher):
 
-    def __init__(self, seed: int, num_features: Num, regularization: str, alpha:Num):
+    def __init__(self, seed: int, num_features: Num, regularization: str, alpha: Num):
         super().__init__(seed)
 
         self.num_features = num_features  # this could be int or float
@@ -28,20 +28,16 @@ class _Linear(_BaseSupervisedSelector, _BaseDispatcher):
         self.factory = {"regression_none": LinearRegression(),
                         "regression_lasso": Lasso(random_state=self.seed),
                         "regression_ridge": Ridge(random_state=self.seed),
-                        # "classification_none": LogisticRegression(penalty="none"), # won't converge most times
-                        "classification_none": LogisticRegression(random_state=self.seed,
-                                                                  multi_class="auto", solver="liblinear"),
+                        "classification_none": LogisticRegression(random_state=self.seed, solver="liblinear"),
                         "classification_lasso": LogisticRegression(random_state=self.seed, penalty='l1',
-                                                                   multi_class="auto", solver="liblinear"),
+                                                                   solver="liblinear"),
                         "classification_ridge": RidgeClassifier(random_state=self.seed)}
 
     def get_model_args(self, selection_method) -> Tuple:
-
         # Pack model argument
         return selection_method.regularization
 
     def dispatch_model(self, labels: pd.Series, *args):
-
         # Unpack model argument
         regularization = args[0]
 
@@ -49,7 +45,6 @@ class _Linear(_BaseSupervisedSelector, _BaseDispatcher):
         self.imp = self.factory.get(get_task_string(labels) + regularization)
 
     def fit(self, data: pd.DataFrame, labels: pd.Series) -> NoReturn:
-
         # Fit linear model
         self.imp.fit(X=data, y=labels)
 
@@ -69,6 +64,5 @@ class _Linear(_BaseSupervisedSelector, _BaseDispatcher):
             self.abs_scores = abs(self.imp.coef_.mean(0))
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
-
         # Select top-k from data based on abs_scores and num_features
         return self.get_top_k(data, self.abs_scores)
