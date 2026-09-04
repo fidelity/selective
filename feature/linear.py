@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import NoReturn, Tuple
-
+import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression, Lasso, Ridge
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
-
+from sklearn.multiclass import OneVsRestClassifier
 from feature.base import _BaseSupervisedSelector, _BaseDispatcher
 from feature.utils import Num, get_task_string
 
@@ -28,9 +28,10 @@ class _Linear(_BaseSupervisedSelector, _BaseDispatcher):
         self.factory = {"regression_none": LinearRegression(),
                         "regression_lasso": Lasso(random_state=self.seed),
                         "regression_ridge": Ridge(random_state=self.seed),
-                        "classification_none": LogisticRegression(random_state=self.seed, solver="liblinear"),
-                        "classification_lasso": LogisticRegression(random_state=self.seed, penalty='l1',
-                                                                   solver="liblinear"),
+                        "classification_none": OneVsRestClassifier(
+                            LogisticRegression(random_state=self.seed, solver="liblinear")),
+                        "classification_lasso": OneVsRestClassifier(
+                            LogisticRegression(random_state=self.seed, penalty='l1', solver="liblinear")),
                         "classification_ridge": RidgeClassifier(random_state=self.seed)}
 
     def get_model_args(self, selection_method) -> Tuple:
@@ -45,6 +46,18 @@ class _Linear(_BaseSupervisedSelector, _BaseDispatcher):
         self.imp = self.factory.get(get_task_string(labels) + regularization)
 
     def fit(self, data: pd.DataFrame, labels: pd.Series) -> NoReturn:
+        """
+        Fits the underlying linear model to the data and calculates absolute feature importances.
+
+        This method identifies the appropriate model context (regression vs. classification),
+        fits it to the training data, and extracts the coefficient weights. For multi-class
+        classifiers, it computes a global score by averaging the class-specific absolute weights.
+
+        :param data: The input features dataframe of shape (n_samples, n_features).
+        :param labels: The target labels series. Automatically determines whether the task
+                is regression or classification.
+
+        """
         # Fit linear model
         self.imp.fit(X=data, y=labels)
 
@@ -55,13 +68,18 @@ class _Linear(_BaseSupervisedSelector, _BaseDispatcher):
         # But that does not necessarily mean they are more important
         # See more discussion here:
         # https://scikit-learn.org/stable/auto_examples/inspection/plot_linear_model_coefficient_interpretation.html#sphx-glr-auto-examples-inspection-plot-linear-model-coefficient-interpretation-py
-        self.abs_scores = abs(self.imp.coef_)
-
         # LogisticRegression/RidgeClassifier returns a coef_ array of (n_classes, n_features)
         # These coefficients map the importance of the feature for a specific class.
         # One approach is to average the importances
-        if isinstance(self.imp, LogisticRegression) or isinstance(self.imp, RidgeClassifier):
-            self.abs_scores = abs(self.imp.coef_.mean(0))
+        if isinstance(self.imp, OneVsRestClassifier):
+            coefficients = np.vstack([estimator.coef_ for estimator in self.imp.estimators_])
+        else:
+            coefficients = np.asarray(self.imp.coef_)
+
+        if isinstance(self.imp, (LogisticRegression, OneVsRestClassifier, RidgeClassifier)):
+            self.abs_scores = np.abs(coefficients.mean(0))
+        else:
+            self.abs_scores = np.abs(coefficients)
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
         # Select top-k from data based on abs_scores and num_features
