@@ -16,7 +16,6 @@ from sklearn.feature_selection import SelectKBest, SelectPercentile
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 
-
 Num = Union[int, float]
 """Num type is defined as integer or float."""
 
@@ -52,7 +51,6 @@ def get_data_label(sklearn_dataset):
 
 
 def get_task_string(labels: pd.Series):
-
     if labels is None:
         return "unsupervised_"
 
@@ -65,7 +63,6 @@ def is_classification(labels: pd.Series):
 
 
 def get_selector(score_func, k: Union[int, float]):
-
     # Top K or Top Percentile
     if isinstance(k, int):
         return SelectKBest(score_func, k=k)
@@ -131,7 +128,6 @@ class DataTransformer:
     """
 
     def __init__(self):
-
         # Imputation
         self.imp = SimpleImputer(strategy='median')
 
@@ -206,7 +202,7 @@ def reduce_memory(df: pd.DataFrame, verbose=True) -> pd.DataFrame:
 
             # Print current column type
             if verbose:
-                print(20*"=")
+                print(20 * "=")
                 print("Column ", i, ":", col)
                 print("dtype_before: ", df[col].dtype)
 
@@ -255,7 +251,7 @@ def reduce_memory(df: pd.DataFrame, verbose=True) -> pd.DataFrame:
             # Print new column type
             if verbose:
                 print("dtype_after: ", df[col].dtype)
-                print(20*"=")
+                print(20 * "=")
 
     memory_after = df.memory_usage().sum() / 1024 ** 2
 
